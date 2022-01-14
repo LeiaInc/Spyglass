@@ -17,6 +17,7 @@ package com.linkedin.android.spyglass.ui;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.graphics.Color;
+import android.os.Parcel;
 import android.text.Editable;
 import android.text.InputFilter;
 import android.text.InputType;

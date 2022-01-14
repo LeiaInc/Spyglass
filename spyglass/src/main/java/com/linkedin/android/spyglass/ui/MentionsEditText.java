@@ -1,19 +1,20 @@
 /*
-* Copyright 2015 LinkedIn Corp. All rights reserved.
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-* http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-*/
+ * Copyright 2015 LinkedIn Corp. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ */
 
 package com.linkedin.android.spyglass.ui;
 
+import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.content.ClipData;
 import android.content.ClipDescription;
@@ -23,6 +24,8 @@ import android.content.Intent;
 import android.content.res.TypedArray;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.text.Editable;
@@ -37,6 +40,7 @@ import android.text.method.ArrowKeyMovementMethod;
 import android.text.method.LinkMovementMethod;
 import android.text.method.MovementMethod;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
@@ -44,6 +48,7 @@ import android.view.accessibility.AccessibilityEvent;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.TextView;
+
 import androidx.annotation.ColorInt;
 import androidx.annotation.IntRange;
 import androidx.annotation.MenuRes;
@@ -92,7 +97,8 @@ public class MentionsEditText extends EditText implements TokenSource {
     private boolean mBlockCompletion = false;
     private boolean mIsWatchingText = false;
     private boolean mAvoidPrefixOnTap = false;
-    @Nullable private String mAvoidedPrefix;
+    @Nullable
+    private String mAvoidedPrefix;
 
     private MentionSpanFactory mentionSpanFactory;
     private MentionSpanConfig mentionSpanConfig;
@@ -216,7 +222,6 @@ public class MentionsEditText extends EditText implements TokenSource {
      * {@link MentionSpan#onClick(View)} is called before the onClick method of this {@link EditText}.
      *
      * @param event the given {@link MotionEvent}
-     *
      * @return true if the {@link MotionEvent} has been handled
      */
     @Override
@@ -227,7 +232,7 @@ public class MentionsEditText extends EditText implements TokenSource {
         // for ACTION_UP when attempting to display (uninitialised) text handles.
         boolean superResult;
         if (android.os.Build.VERSION.SDK_INT == Build.VERSION_CODES.M &&
-            event.getActionMasked() == MotionEvent.ACTION_UP) {
+                event.getActionMasked() == MotionEvent.ACTION_UP) {
             try {
                 superResult = super.onTouchEvent(event);
             } catch (NullPointerException ignored) {
@@ -417,7 +422,6 @@ public class MentionsEditText extends EditText implements TokenSource {
      * {@link LinkMovementMethod#onTouchEvent(TextView, Spannable, MotionEvent)}
      *
      * @param event the given (@link MotionEvent}
-     *
      * @return the tapped {@link MentionSpan}, or null if one was not tapped
      */
     @Nullable
@@ -505,7 +509,6 @@ public class MentionsEditText extends EditText implements TokenSource {
      * be passed to the super method.
      *
      * @param index int position of cursor within the text
-     *
      * @return true if handled
      */
     private boolean onCursorChanged(final int index) {
@@ -675,8 +678,7 @@ public class MentionsEditText extends EditText implements TokenSource {
      *
      * @param count length of affected text before change starting at start in text
      * @param after length of affected text after change
-     *
-     * @return  true if there is a span before the cursor that is going to change state
+     * @return true if there is a span before the cursor that is going to change state
      */
     private boolean markSpans(int count, int after) {
         int cursor = getSelectionStart();
@@ -714,7 +716,7 @@ public class MentionsEditText extends EditText implements TokenSource {
      * to place arbitrary spans over the text. This was resulting in several bugs in edge cases while handling the
      * MentionSpans while composing text (with different issues for different keyboards). The easiest solution for this
      * is to remove any MentionSpans that could cause issues while the user is changing text.
-     *
+     * <p>
      * Note: The MentionSpans are added again in {@link #replacePlaceholdersWithCorrespondingMentionSpans(Editable)}
      *
      * @param text the current text before it changes
@@ -740,7 +742,7 @@ public class MentionsEditText extends EditText implements TokenSource {
      *
      * @param text  the text to examine
      * @param index index of the cursor in the text
-     * @return  index of the beginning of the word in text (will be less than or equal to index)
+     * @return index of the beginning of the word in text (will be less than or equal to index)
      */
     private int findStartOfWord(@NonNull CharSequence text, int index) {
         int wordStart = index;
@@ -753,9 +755,9 @@ public class MentionsEditText extends EditText implements TokenSource {
     /**
      * Mark text that was duplicated during text composition to delete it later.
      *
-     * @param text          the given text
-     * @param cursor        the index of the cursor in text
-     * @param tokenizer     the {@link Tokenizer} to use
+     * @param text      the given text
+     * @param cursor    the index of the cursor in text
+     * @param tokenizer the {@link Tokenizer} to use
      */
     private void markDuplicatedTextForDeletionLater(@NonNull Editable text, int cursor, @NonNull Tokenizer tokenizer) {
         while (cursor > 0 && tokenizer.isWordBreakingChar(text.charAt(cursor - 1))) {
@@ -799,7 +801,7 @@ public class MentionsEditText extends EditText implements TokenSource {
     /**
      * Replaces any {@link com.linkedin.android.spyglass.ui.MentionsEditText.PlaceholderSpan} within the given text with
      * the {@link MentionSpan} it contains.
-     *
+     * <p>
      * Note: These PlaceholderSpans are added in {@link #replaceMentionSpansWithPlaceholdersAsNecessary(CharSequence)}
      *
      * @param text the final version of the text after it was changed
@@ -968,6 +970,46 @@ public class MentionsEditText extends EditText implements TokenSource {
     }
 
     /**
+     * Get a mention which includes the explicit char
+     */
+    private Mentionable createMentionWithExplicitChar(@NonNull Mentionable mention, char explicitChar) {
+        return new Mentionable() {
+            @NonNull
+            @Override
+            public String getTextForDisplayMode(@NonNull MentionDisplayMode mode) {
+                return explicitChar + mention.getTextForDisplayMode(mode);
+            }
+
+            @NonNull
+            @Override
+            public MentionDeleteStyle getDeleteStyle() {
+                return mention.getDeleteStyle();
+            }
+
+            @Override
+            public int getSuggestibleId() {
+                return mention.getSuggestibleId();
+            }
+
+            @NonNull
+            @Override
+            public String getSuggestiblePrimaryText() {
+                return explicitChar + mention.getSuggestiblePrimaryText();
+            }
+
+            @Override
+            public int describeContents() {
+                return 0;
+            }
+
+            @Override
+            public void writeToParcel(Parcel parcel, int i) {
+                parcel.writeString(getSuggestiblePrimaryText());
+            }
+        };
+    }
+
+    /**
      * Inserts a mention into the token being considered currently.
      *
      * @param mention {@link Mentionable} to insert a span for
@@ -986,6 +1028,8 @@ public class MentionsEditText extends EditText implements TokenSource {
             return;
         }
 
+        char explicitChar = text.charAt(start);
+        mention = createMentionWithExplicitChar(mention, explicitChar);
         insertMentionInternal(mention, text, start, end);
     }
 
@@ -1001,9 +1045,12 @@ public class MentionsEditText extends EditText implements TokenSource {
         int index = getSelectionStart();
         index = index > 0 ? index : 0;
 
+        char explicitChar = text.charAt(index);
+        mention = createMentionWithExplicitChar(mention, explicitChar);
         insertMentionInternal(mention, text, index, index);
     }
 
+    @SuppressLint("SetTextI18n")
     private void insertMentionInternal(@NonNull Mentionable mention, @NonNull Editable text, int start, int end) {
         // Insert the span into the editor
         MentionSpan mentionSpan = mentionSpanFactory.createMentionSpan(mention, mentionSpanConfig);
@@ -1015,6 +1062,7 @@ public class MentionsEditText extends EditText implements TokenSource {
         text.setSpan(mentionSpan, start, endOfMention, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         Selection.setSelection(text, endOfMention);
         ensureMentionSpanIntegrity(text);
+        text.insert(text.length(), " ");
         mBlockCompletion = false;
 
         // Notify listeners of added mention
@@ -1142,7 +1190,7 @@ public class MentionsEditText extends EditText implements TokenSource {
         Editable text = getText();
         SpannableStringBuilder sb = new SpannableStringBuilder(text);
         MentionSpan[] spans = sb.getSpans(0, sb.length(), MentionSpan.class);
-        for (MentionSpan span: spans) {
+        for (MentionSpan span : spans) {
             sb.removeSpan(span);
         }
         return sb;
@@ -1189,7 +1237,8 @@ public class MentionsEditText extends EditText implements TokenSource {
     /**
      * Simple class to mark a span of text to delete later.
      */
-    private class DeleteSpan {}
+    private class DeleteSpan {
+    }
 
     /**
      * Runnable which detects the long click action.
@@ -1439,30 +1488,30 @@ public class MentionsEditText extends EditText implements TokenSource {
         /**
          * Callback for when a mention is added.
          *
-         * @param mention   the {@link Mentionable} that was added
-         * @param text      the text after the mention was added
-         * @param start     the starting index of where the mention was added
-         * @param end       the ending index of where the mention was added
+         * @param mention the {@link Mentionable} that was added
+         * @param text    the text after the mention was added
+         * @param start   the starting index of where the mention was added
+         * @param end     the ending index of where the mention was added
          */
         void onMentionAdded(@NonNull Mentionable mention, @NonNull String text, int start, int end);
 
         /**
          * Callback for when a mention is deleted.
          *
-         * @param mention   the {@link Mentionable} that was deleted
-         * @param text      the text before the mention was deleted
-         * @param start     the starting index of where the mention was deleted
-         * @param end       the ending index of where the mention was deleted
+         * @param mention the {@link Mentionable} that was deleted
+         * @param text    the text before the mention was deleted
+         * @param start   the starting index of where the mention was deleted
+         * @param end     the ending index of where the mention was deleted
          */
         void onMentionDeleted(@NonNull Mentionable mention, @NonNull String text, int start, int end);
 
         /**
          * Callback for when a mention is partially deleted.
          *
-         * @param mention   the {@link Mentionable} that was deleted
-         * @param text      the text after the mention was partially deleted
-         * @param start     the starting index of where the partial mention starts
-         * @param end       the ending index of where the partial mention ends
+         * @param mention the {@link Mentionable} that was deleted
+         * @param text    the text after the mention was partially deleted
+         * @param start   the starting index of where the partial mention starts
+         * @param end     the ending index of where the partial mention ends
          */
         void onMentionPartiallyDeleted(@NonNull Mentionable mention, @NonNull String text, int start, int end);
     }
@@ -1474,12 +1523,15 @@ public class MentionsEditText extends EditText implements TokenSource {
     @SuppressWarnings("unused")
     public class SimpleMentionWatcher implements MentionWatcher {
         @Override
-        public void onMentionAdded(@NonNull Mentionable mention, @NonNull String text, int start, int end) {}
+        public void onMentionAdded(@NonNull Mentionable mention, @NonNull String text, int start, int end) {
+        }
 
         @Override
-        public void onMentionDeleted(@NonNull Mentionable mention, @NonNull String text, int start, int end) {}
+        public void onMentionDeleted(@NonNull Mentionable mention, @NonNull String text, int start, int end) {
+        }
 
         @Override
-        public void onMentionPartiallyDeleted(@NonNull Mentionable mention, @NonNull String text, int start, int end) {}
+        public void onMentionPartiallyDeleted(@NonNull Mentionable mention, @NonNull String text, int start, int end) {
+        }
     }
 }
