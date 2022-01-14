@@ -37,13 +37,14 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Simple example showing city mentions.
+ * Simple example showing people mentions and hashtags.
  */
 
 /**
  * TODO: Custom adapters
- * TODO: Fix backspace handling
- * TODO: span hashtag even if mention was not found
+ * TODO: Fix backspace handling?
+ * TODO: Span hashtag even if it was not found in database
+ * TODO: Other UI customizations?
  */
 public class MentionsAndHashtags extends AppCompatActivity implements QueryTokenReceiver {
 

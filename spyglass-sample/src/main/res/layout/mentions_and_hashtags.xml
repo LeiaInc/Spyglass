@@ -25,6 +25,5 @@
         android:minHeight="150dp"
         app:mentionTextBackgroundColor="@android:color/transparent"
         app:mentionTextColor="#5622bc"
-        app:selectedMentionTextBackgroundColor="@android:color/transparent"
-        app:selectedMentionTextColor="#5622bc" />
+        app:selectedMentionTextBackgroundColor="#5622bc" />
 </LinearLayout>
