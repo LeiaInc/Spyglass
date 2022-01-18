@@ -1,24 +1,27 @@
 /*
-* Copyright 2015 LinkedIn Corp. All rights reserved.
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-* http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-*/
+ * Copyright 2015 LinkedIn Corp. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ */
 
 package com.linkedin.android.spyglass.tokenization.impl;
 
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.TextUtils;
+import android.util.Log;
 import android.widget.EditText;
+
 import androidx.annotation.NonNull;
+
 import com.linkedin.android.spyglass.mentions.MentionSpan;
 import com.linkedin.android.spyglass.tokenization.interfaces.Tokenizer;
 
@@ -215,6 +218,21 @@ public class WordTokenizer implements Tokenizer {
     /**
      * {@inheritDoc}
      */
+    @Override
+    public boolean isAlwaysCreateMentionChar(final char c) {
+        final String alwaysCreateMentionsChars = mConfig.ALWAYS_CREATE_MENTIONS_CHARS;
+        for (int i = 0; i < alwaysCreateMentionsChars.length(); i++) {
+            char alwaysCreateMentionsChar = alwaysCreateMentionsChars.charAt(i);
+            if (c == alwaysCreateMentionsChar) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
     public boolean isWordBreakingChar(final char c) {
         final String wordBreakChars = mConfig.WORD_BREAK_CHARS;
         for (int i = 0; i < wordBreakChars.length(); i++) {
@@ -237,7 +255,6 @@ public class WordTokenizer implements Tokenizer {
      *
      * @param text   String to determine if it is explicit or not
      * @param cursor position of the cursor in text
-     *
      * @return true if the current keywords are explicit (i.e. explicit character typed before cursor)
      */
     public boolean isExplicit(final @NonNull CharSequence text, final int cursor) {
@@ -250,7 +267,6 @@ public class WordTokenizer implements Tokenizer {
      *
      * @param text   String to get the explicit character from
      * @param cursor position of the cursor in text
-     *
      * @return the current explicit character or the null character if not currently explicit
      */
     public char getExplicitChar(final @NonNull CharSequence text, final int cursor) {
@@ -288,7 +304,6 @@ public class WordTokenizer implements Tokenizer {
      * Returns true if the input string contains an explicit character.
      *
      * @param input a {@link CharSequence} to test
-     *
      * @return true if input contains an explicit character
      */
     public boolean containsExplicitChar(final @NonNull CharSequence input) {
@@ -304,10 +319,27 @@ public class WordTokenizer implements Tokenizer {
     }
 
     /**
+     * Returns true if the input string contains an always create mention character.
+     *
+     * @param input a {@link CharSequence} to test
+     * @return true if input contains an always create mention character
+     */
+    public boolean containsAlwaysCreateMentionChar(final @NonNull CharSequence input) {
+        if (!TextUtils.isEmpty(input)) {
+            for (int i = 0; i < input.length(); i++) {
+                char c = input.charAt(i);
+                if (isAlwaysCreateMentionChar(c)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
      * Returns true if the input string contains a word-breaking character.
      *
      * @param input a {@link CharSequence} to test
-     *
      * @return true if input contains a word-breaking character
      */
     public boolean containsWordBreakingChar(final @NonNull CharSequence input) {
@@ -329,7 +361,6 @@ public class WordTokenizer implements Tokenizer {
      * @param input           a {@link CharSequence} to test
      * @param numCharsToCheck number of characters to examine at starting position
      * @param start           starting position within the input string
-     *
      * @return true if the first "numCharsToCheck" at the starting index are either letters or digits
      */
     public boolean onlyLettersOrDigits(final @NonNull CharSequence input, final int numCharsToCheck, final int start) {
@@ -367,7 +398,6 @@ public class WordTokenizer implements Tokenizer {
      *
      * @param text   the {@link Spanned} to examine
      * @param cursor position of the cursor in text
-     *
      * @return the furthest in front of the cursor to search for the current keywords
      */
     protected int getSearchStartIndex(final @NonNull Spanned text, int cursor) {
@@ -402,7 +432,6 @@ public class WordTokenizer implements Tokenizer {
      *
      * @param text   the {@link Spanned} to examine
      * @param cursor position of the cursor in text
-     *
      * @return the furthest behind the cursor to search for the current keywords
      */
     protected int getSearchEndIndex(final @NonNull Spanned text, int cursor) {
@@ -441,7 +470,6 @@ public class WordTokenizer implements Tokenizer {
      *
      * @param text   the {@link Spanned} to check for a word-breaking character before the explicit character
      * @param cursor position of the cursor in text
-     *
      * @return true if there is a space before the explicit character, false otherwise
      */
     protected boolean hasWordBreakingCharBeforeExplicitChar(final @NonNull Spanned text, final int cursor) {

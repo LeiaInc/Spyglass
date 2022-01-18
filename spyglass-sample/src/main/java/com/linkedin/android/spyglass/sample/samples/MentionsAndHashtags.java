@@ -17,10 +17,12 @@ package com.linkedin.android.spyglass.sample.samples;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.linkedin.android.spyglass.mentions.Mentionable;
 import com.linkedin.android.spyglass.sample.R;
 import com.linkedin.android.spyglass.sample.data.models.Hashtag;
 import com.linkedin.android.spyglass.sample.data.models.Person;
@@ -29,6 +31,7 @@ import com.linkedin.android.spyglass.suggestions.interfaces.SuggestionsResultLis
 import com.linkedin.android.spyglass.tokenization.QueryToken;
 import com.linkedin.android.spyglass.tokenization.impl.WordTokenizer;
 import com.linkedin.android.spyglass.tokenization.impl.WordTokenizerConfig;
+import com.linkedin.android.spyglass.tokenization.interfaces.AlwaysInsertQueryReceiver;
 import com.linkedin.android.spyglass.tokenization.interfaces.QueryTokenReceiver;
 import com.linkedin.android.spyglass.ui.RichEditorView;
 
@@ -37,16 +40,13 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Simple example showing people mentions and hashtags.
- */
-
-/**
  * TODO: Custom adapters
- * TODO: Fix backspace handling?
- * TODO: Span hashtag even if it was not found in database
+ * TODO: Fix backspace handling? +
+ * TODO: Span hashtag even if it was not found in database +
+ * TODO: Span click handling
  * TODO: Other UI customizations?
  */
-public class MentionsAndHashtags extends AppCompatActivity implements QueryTokenReceiver {
+public class MentionsAndHashtags extends AppCompatActivity implements QueryTokenReceiver, AlwaysInsertQueryReceiver {
 
     private static final String LOG_TAG = MentionsAndHashtags.class.getSimpleName();
 
@@ -55,8 +55,9 @@ public class MentionsAndHashtags extends AppCompatActivity implements QueryToken
 
     private static final WordTokenizerConfig tokenizerConfig = new WordTokenizerConfig
             .Builder()
-            .setWordBreakChars(", ")
+            .setWordBreakChars(" ")
             .setExplicitChars("@#")
+            .setAlwaysCreateMentionsChars("#")
             .build();
 
     private static final String PERSON_BUCKET = "people";
@@ -79,7 +80,9 @@ public class MentionsAndHashtags extends AppCompatActivity implements QueryToken
         editor.setTokenizer(new WordTokenizer(tokenizerConfig));
         editor.displayTextCounter(false);
         editor.setQueryTokenReceiver(this);
+        editor.setOnAlwaysInsertQueryTokenReceier(this);
         editor.setHint(getResources().getString(R.string.type_person_or_hashtag));
+
 
         people = new Person.PersonLoader(getResources());
         hashtags = new Hashtag.HashtagLoader(getResources());
@@ -112,5 +115,11 @@ public class MentionsAndHashtags extends AppCompatActivity implements QueryToken
         }
 
         return buckets;
+    }
+
+    @Override
+    public void onAlwaysInsertQueryReceived(@NonNull QueryToken queryToken) {
+        Mentionable suggestion = new Hashtag(queryToken.getKeywords());
+        editor.insertMention(suggestion);
     }
 }

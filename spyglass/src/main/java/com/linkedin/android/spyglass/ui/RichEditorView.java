@@ -1,23 +1,22 @@
 /*
-* Copyright 2015 LinkedIn Corp. All rights reserved.
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-* http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-*/
+ * Copyright 2015 LinkedIn Corp. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ */
 
 package com.linkedin.android.spyglass.ui;
 
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.graphics.Color;
-import android.os.Parcel;
 import android.text.Editable;
 import android.text.InputFilter;
 import android.text.InputType;
@@ -27,7 +26,6 @@ import android.util.AttributeSet;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.AdapterView;
 import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.RelativeLayout;
@@ -36,6 +34,7 @@ import android.widget.TextView;
 import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+
 import com.linkedin.android.spyglass.R;
 import com.linkedin.android.spyglass.mentions.MentionSpan;
 import com.linkedin.android.spyglass.mentions.MentionSpanConfig;
@@ -51,13 +50,13 @@ import com.linkedin.android.spyglass.suggestions.interfaces.SuggestionsVisibilit
 import com.linkedin.android.spyglass.tokenization.QueryToken;
 import com.linkedin.android.spyglass.tokenization.impl.WordTokenizer;
 import com.linkedin.android.spyglass.tokenization.impl.WordTokenizerConfig;
+import com.linkedin.android.spyglass.tokenization.interfaces.AlwaysInsertQueryReceiver;
 import com.linkedin.android.spyglass.tokenization.interfaces.QueryTokenReceiver;
 import com.linkedin.android.spyglass.tokenization.interfaces.Tokenizer;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
 
 /**
  * Custom view for the RichEditor. Manages three subviews:
@@ -75,7 +74,8 @@ import java.util.Objects;
  * @attr ref R.styleable#RichEditorView_selectedMentionTextColor
  * @attr ref R.styleable#RichEditorView_selectedMentionTextBackgroundColor
  */
-public class RichEditorView extends RelativeLayout implements TextWatcher, QueryTokenReceiver, SuggestionsResultListener, SuggestionsVisibilityManager {
+public class RichEditorView extends RelativeLayout implements TextWatcher, QueryTokenReceiver,
+        AlwaysInsertQueryReceiver, SuggestionsResultListener, SuggestionsVisibilityManager {
 
     private MentionsEditText mMentionsEditText;
     private int mOriginalInputType = InputType.TYPE_CLASS_TEXT; // Default to plain text
@@ -83,6 +83,7 @@ public class RichEditorView extends RelativeLayout implements TextWatcher, Query
     private ListView mSuggestionsList;
 
     private QueryTokenReceiver mHostQueryTokenReceiver;
+    private AlwaysInsertQueryReceiver mHostAlwaysInsertQueryTokenReceiver;
     private SuggestionsAdapter mSuggestionsAdapter;
     private OnSuggestionsVisibilityChangeListener mActionListener;
 
@@ -140,6 +141,7 @@ public class RichEditorView extends RelativeLayout implements TextWatcher, Query
         mMentionsEditText.setSuggestionsVisibilityManager(this);
         mMentionsEditText.addTextChangedListener(this);
         mMentionsEditText.setQueryTokenReceiver(this);
+        mMentionsEditText.setAlwaysInsertQueryReceiver(this);
         mMentionsEditText.setAvoidPrefixOnTap(true);
 
         // Set the suggestions adapter
@@ -172,9 +174,9 @@ public class RichEditorView extends RelativeLayout implements TextWatcher, Query
         }
 
         TypedArray attributes = context.getTheme().obtainStyledAttributes(attrs,
-                                                                          R.styleable.RichEditorView,
-                                                                          defStyleAttr,
-                                                                          0);
+                R.styleable.RichEditorView,
+                defStyleAttr,
+                0);
         @ColorInt int normalTextColor = attributes.getColor(R.styleable.RichEditorView_mentionTextColor, -1);
         builder.setMentionTextColor(normalTextColor);
         @ColorInt int normalBgColor = attributes.getColor(R.styleable.RichEditorView_mentionTextBackgroundColor, -1);
@@ -193,15 +195,15 @@ public class RichEditorView extends RelativeLayout implements TextWatcher, Query
     // Public Span & UI Methods
     // --------------------------------------------------
 
-	/**
-	 * Allows filters in the input element.
-	 *
-	 * Example: obj.setInputFilters(new InputFilter[]{new InputFilter.LengthFilter(30)});
-	 *
-	 * @param filters   the list of filters to apply
-	 */
+    /**
+     * Allows filters in the input element.
+     * <p>
+     * Example: obj.setInputFilters(new InputFilter[]{new InputFilter.LengthFilter(30)});
+     *
+     * @param filters the list of filters to apply
+     */
     public void setInputFilters(@Nullable InputFilter... filters) {
-		mMentionsEditText.setFilters(filters);
+        mMentionsEditText.setFilters(filters);
 
     }
 
@@ -318,6 +320,12 @@ public class RichEditorView extends RelativeLayout implements TextWatcher, Query
         return Collections.emptyList();
     }
 
+    @Override
+    public void onAlwaysInsertQueryReceived(@NonNull QueryToken queryToken) {
+        if (mHostAlwaysInsertQueryTokenReceiver != null) {
+            mHostAlwaysInsertQueryTokenReceiver.onAlwaysInsertQueryReceived(queryToken);
+        }
+    }
 
     // --------------------------------------------------
     // SuggestionsResultListener Implementation
@@ -662,6 +670,10 @@ public class RichEditorView extends RelativeLayout implements TextWatcher, Query
         mHostQueryTokenReceiver = client;
     }
 
+    public void setOnAlwaysInsertQueryTokenReceier(final @Nullable AlwaysInsertQueryReceiver client) {
+        mHostAlwaysInsertQueryTokenReceiver = client;
+    }
+
     /**
      * Sets a listener for anyone interested in specific actions of the {@link RichEditorView}.
      *
@@ -692,5 +704,9 @@ public class RichEditorView extends RelativeLayout implements TextWatcher, Query
         if (mSuggestionsAdapter != null) {
             mSuggestionsAdapter.setSuggestionsListBuilder(suggestionsListBuilder);
         }
+    }
+
+    public void insertMention(Mentionable mention) {
+        mMentionsEditText.insertMention(mention);
     }
 }

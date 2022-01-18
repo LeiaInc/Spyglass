@@ -1,16 +1,16 @@
 /*
-* Copyright 2015 LinkedIn Corp. All rights reserved.
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-* http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-*/
+ * Copyright 2015 LinkedIn Corp. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ */
 
 package com.linkedin.android.spyglass.tokenization.impl;
 
@@ -22,7 +22,8 @@ import androidx.annotation.NonNull;
  */
 public class WordTokenizerConfig {
 
-    @NonNull public final String LINE_SEPARATOR;
+    @NonNull
+    public final String LINE_SEPARATOR;
 
     // Number of characters required in a word before returning a mention suggestion starting with the word
     // Note: These characters are required to be either letters or digits
@@ -32,20 +33,28 @@ public class WordTokenizerConfig {
     public int MAX_NUM_KEYWORDS;
 
     // Characters to use as explicit mention indicators
-    @NonNull public final String EXPLICIT_CHARS;
+    @NonNull
+    public final String EXPLICIT_CHARS;
+
+    // Characters to always create mentions even if suggestion is not found
+    @NonNull
+    public final String ALWAYS_CREATE_MENTIONS_CHARS;
 
     // Characters to use to separate words
-    @NonNull public final String WORD_BREAK_CHARS;
+    @NonNull
+    public final String WORD_BREAK_CHARS;
 
     private WordTokenizerConfig(final @NonNull String lineSeparator,
                                 final int threshold,
                                 final int maxNumKeywords,
                                 final @NonNull String explicitChars,
+                                final @NonNull String alwaysCreateMentionsChars,
                                 final @NonNull String wordBreakChars) {
         LINE_SEPARATOR = lineSeparator;
         THRESHOLD = threshold;
         MAX_NUM_KEYWORDS = maxNumKeywords;
         EXPLICIT_CHARS = explicitChars;
+        ALWAYS_CREATE_MENTIONS_CHARS = alwaysCreateMentionsChars;
         WORD_BREAK_CHARS = wordBreakChars;
     }
 
@@ -56,6 +65,7 @@ public class WordTokenizerConfig {
         private int threshold = 4;
         private int maxNumKeywords = 1;
         private String explicitChars = "@";
+        private String alwaysCreateMentionsChars = "#";
         private String wordBreakChars = " ." + System.getProperty("line.separator");
 
         @NonNull
@@ -83,6 +93,12 @@ public class WordTokenizerConfig {
         }
 
         @NonNull
+        public Builder setAlwaysCreateMentionsChars(@NonNull String alwaysCreateMentionsChars) {
+            this.alwaysCreateMentionsChars = alwaysCreateMentionsChars;
+            return this;
+        }
+
+        @NonNull
         public Builder setWordBreakChars(@NonNull String wordBreakChars) {
             this.wordBreakChars = wordBreakChars;
             return this;
@@ -90,7 +106,8 @@ public class WordTokenizerConfig {
 
         @NonNull
         public WordTokenizerConfig build() {
-            return new WordTokenizerConfig(lineSeparator, threshold, maxNumKeywords, explicitChars, wordBreakChars);
+            return new WordTokenizerConfig(lineSeparator, threshold, maxNumKeywords, explicitChars,
+                    alwaysCreateMentionsChars, wordBreakChars);
         }
     }
 }

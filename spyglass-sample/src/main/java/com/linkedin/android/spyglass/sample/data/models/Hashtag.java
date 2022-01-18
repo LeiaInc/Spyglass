@@ -61,9 +61,7 @@ public class Hashtag implements Mentionable {
     @NonNull
     @Override
     public MentionDeleteStyle getDeleteStyle() {
-        // Note: Cities do not support partial deletion
-        // i.e. "San Francisco" -> DEL -> ""
-        return MentionDeleteStyle.PARTIAL_NAME_DELETE;
+        return MentionDeleteStyle.FULL_DELETE;
     }
 
     @Override

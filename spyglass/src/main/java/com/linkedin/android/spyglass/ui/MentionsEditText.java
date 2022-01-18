@@ -62,6 +62,7 @@ import com.linkedin.android.spyglass.mentions.Mentionable;
 import com.linkedin.android.spyglass.mentions.MentionsEditable;
 import com.linkedin.android.spyglass.suggestions.interfaces.SuggestionsVisibilityManager;
 import com.linkedin.android.spyglass.tokenization.QueryToken;
+import com.linkedin.android.spyglass.tokenization.interfaces.AlwaysInsertQueryReceiver;
 import com.linkedin.android.spyglass.tokenization.interfaces.QueryTokenReceiver;
 import com.linkedin.android.spyglass.tokenization.interfaces.TokenSource;
 import com.linkedin.android.spyglass.tokenization.interfaces.Tokenizer;
@@ -89,6 +90,8 @@ public class MentionsEditText extends EditText implements TokenSource {
 
     private Tokenizer mTokenizer;
     private QueryTokenReceiver mQueryTokenReceiver;
+    private AlwaysInsertQueryReceiver mAlwaysInsertQueryReceiver;
+    private QueryToken mLastQueryToken;
     private SuggestionsVisibilityManager mSuggestionsVisibilityManager;
 
     private List<MentionWatcher> mMentionWatchers = new ArrayList<>();
@@ -904,8 +907,24 @@ public class MentionsEditText extends EditText implements TokenSource {
             }
         }
 
+        // Handle always insert mention
+        String currentText = getText().toString();
+        if (!currentText.isEmpty() && mLastQueryToken != null) {
+            Tokenizer tokenizer = getTokenizer();
+            if (tokenizer == null) return;
+            if (tokenizer.isWordBreakingChar(currentText.charAt(currentText.length() - 1))) {
+                if (tokenizer.isAlwaysCreateMentionChar(mLastQueryToken.getExplicitChar())) {
+                    // remove the inserted line breaker and handle the always insert
+                    int length = getEditableText().length();
+                    getEditableText().delete(length - 1, length);
+                    mAlwaysInsertQueryReceiver.onAlwaysInsertQueryReceived(mLastQueryToken);
+                }
+            }
+        }
+
         // Request suggestions from the QueryClient
         QueryToken queryToken = getQueryTokenIfValid();
+        mLastQueryToken = queryToken;
         if (queryToken != null && mQueryTokenReceiver != null) {
             // Valid token, so send query to the app for processing
             mQueryTokenReceiver.onQueryReceived(queryToken);
@@ -1372,6 +1391,10 @@ public class MentionsEditText extends EditText implements TokenSource {
      */
     public void setQueryTokenReceiver(@Nullable final QueryTokenReceiver queryTokenReceiver) {
         mQueryTokenReceiver = queryTokenReceiver;
+    }
+
+    public void setAlwaysInsertQueryReceiver(@Nullable final AlwaysInsertQueryReceiver queryTokenReceiver) {
+        mAlwaysInsertQueryReceiver = queryTokenReceiver;
     }
 
     /**
