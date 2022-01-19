@@ -15,7 +15,6 @@
 package com.linkedin.android.spyglass.ui;
 
 import android.annotation.SuppressLint;
-import android.annotation.TargetApi;
 import android.content.ClipData;
 import android.content.ClipDescription;
 import android.content.ClipboardManager;
@@ -24,8 +23,6 @@ import android.content.Intent;
 import android.content.res.TypedArray;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.text.Editable;
@@ -40,7 +37,6 @@ import android.text.method.ArrowKeyMovementMethod;
 import android.text.method.LinkMovementMethod;
 import android.text.method.MovementMethod;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
@@ -63,6 +59,7 @@ import com.linkedin.android.spyglass.mentions.MentionsEditable;
 import com.linkedin.android.spyglass.suggestions.interfaces.SuggestionsVisibilityManager;
 import com.linkedin.android.spyglass.tokenization.QueryToken;
 import com.linkedin.android.spyglass.tokenization.interfaces.AlwaysInsertQueryReceiver;
+import com.linkedin.android.spyglass.tokenization.interfaces.MentionClickReceiver;
 import com.linkedin.android.spyglass.tokenization.interfaces.QueryTokenReceiver;
 import com.linkedin.android.spyglass.tokenization.interfaces.TokenSource;
 import com.linkedin.android.spyglass.tokenization.interfaces.Tokenizer;
@@ -72,11 +69,11 @@ import java.util.List;
 
 /**
  * Class that overrides {@link EditText} in order to have more control over touch events and selection ranges for use in
- * the {@link RichEditorView}.
+ * the {@link MentionsEditorView}.
  * <p/>
  * <b>XML attributes</b>
  * <p/>
- * See {@link R.styleable#MentionsEditText Attributes}
+ * See {@link R.styleable#MentionsView Attributes}
  *
  * @attr ref R.styleable#MentionsEditText_mentionTextColor
  * @attr ref R.styleable#MentionsEditText_mentionTextBackgroundColor
@@ -91,6 +88,7 @@ public class MentionsEditText extends EditText implements TokenSource {
     private Tokenizer mTokenizer;
     private QueryTokenReceiver mQueryTokenReceiver;
     private AlwaysInsertQueryReceiver mAlwaysInsertQueryReceiver;
+    private MentionClickReceiver mMentionClickReceiver;
     private QueryToken mLastQueryToken;
     private SuggestionsVisibilityManager mSuggestionsVisibilityManager;
 
@@ -103,7 +101,6 @@ public class MentionsEditText extends EditText implements TokenSource {
     @Nullable
     private String mAvoidedPrefix;
 
-    private MentionSpanFactory mentionSpanFactory;
     private MentionSpanConfig mentionSpanConfig;
     private boolean isLongPressed;
     private CheckLongClickRunnable longClickRunnable;
@@ -138,9 +135,6 @@ public class MentionsEditText extends EditText implements TokenSource {
 
         // Start watching itself for text changes
         addTextChangedListener(mInternalTextWatcher);
-
-        // Use default MentionSpanFactory initially
-        mentionSpanFactory = new MentionSpanFactory();
     }
 
     private MentionSpanConfig parseMentionSpanConfigFromAttributes(@Nullable AttributeSet attrs, int defStyleAttr) {
@@ -150,14 +144,14 @@ public class MentionsEditText extends EditText implements TokenSource {
             return builder.build();
         }
 
-        TypedArray attributes = context.getTheme().obtainStyledAttributes(attrs, R.styleable.MentionsEditText, defStyleAttr, 0);
-        @ColorInt int normalTextColor = attributes.getColor(R.styleable.MentionsEditText_mentionTextColor, -1);
+        TypedArray attributes = context.getTheme().obtainStyledAttributes(attrs, R.styleable.MentionsView, defStyleAttr, 0);
+        @ColorInt int normalTextColor = attributes.getColor(R.styleable.MentionsView_mentionTextColor, -1);
         builder.setMentionTextColor(normalTextColor);
-        @ColorInt int normalBgColor = attributes.getColor(R.styleable.MentionsEditText_mentionTextBackgroundColor, -1);
+        @ColorInt int normalBgColor = attributes.getColor(R.styleable.MentionsView_mentionTextBackgroundColor, -1);
         builder.setMentionTextBackgroundColor(normalBgColor);
-        @ColorInt int selectedTextColor = attributes.getColor(R.styleable.MentionsEditText_selectedMentionTextColor, -1);
+        @ColorInt int selectedTextColor = attributes.getColor(R.styleable.MentionsView_selectedMentionTextColor, -1);
         builder.setSelectedMentionTextColor(selectedTextColor);
-        @ColorInt int selectedBgColor = attributes.getColor(R.styleable.MentionsEditText_selectedMentionTextBackgroundColor, -1);
+        @ColorInt int selectedBgColor = attributes.getColor(R.styleable.MentionsView_selectedMentionTextBackgroundColor, -1);
         builder.setSelectedMentionTextBackgroundColor(selectedBgColor);
 
         attributes.recycle();
@@ -914,7 +908,7 @@ public class MentionsEditText extends EditText implements TokenSource {
             if (tokenizer == null) return;
             if (tokenizer.isWordBreakingChar(currentText.charAt(currentText.length() - 1))) {
                 if (tokenizer.isAlwaysCreateMentionChar(mLastQueryToken.getExplicitChar())) {
-                    // remove the inserted line breaker and handle the always insert
+                    // Remove the inserted line breaker and handle the always insert
                     int length = getEditableText().length();
                     getEditableText().delete(length - 1, length);
                     mAlwaysInsertQueryReceiver.onAlwaysInsertQueryReceived(mLastQueryToken);
@@ -989,46 +983,6 @@ public class MentionsEditText extends EditText implements TokenSource {
     }
 
     /**
-     * Get a mention which includes the explicit char
-     */
-    private Mentionable createMentionWithExplicitChar(@NonNull Mentionable mention, char explicitChar) {
-        return new Mentionable() {
-            @NonNull
-            @Override
-            public String getTextForDisplayMode(@NonNull MentionDisplayMode mode) {
-                return explicitChar + mention.getTextForDisplayMode(mode);
-            }
-
-            @NonNull
-            @Override
-            public MentionDeleteStyle getDeleteStyle() {
-                return mention.getDeleteStyle();
-            }
-
-            @Override
-            public int getSuggestibleId() {
-                return mention.getSuggestibleId();
-            }
-
-            @NonNull
-            @Override
-            public String getSuggestiblePrimaryText() {
-                return explicitChar + mention.getSuggestiblePrimaryText();
-            }
-
-            @Override
-            public int describeContents() {
-                return 0;
-            }
-
-            @Override
-            public void writeToParcel(Parcel parcel, int i) {
-                parcel.writeString(getSuggestiblePrimaryText());
-            }
-        };
-    }
-
-    /**
      * Inserts a mention into the token being considered currently.
      *
      * @param mention {@link Mentionable} to insert a span for
@@ -1047,8 +1001,6 @@ public class MentionsEditText extends EditText implements TokenSource {
             return;
         }
 
-        char explicitChar = text.charAt(start);
-        mention = createMentionWithExplicitChar(mention, explicitChar);
         insertMentionInternal(mention, text, start, end);
     }
 
@@ -1064,20 +1016,17 @@ public class MentionsEditText extends EditText implements TokenSource {
         int index = getSelectionStart();
         index = index > 0 ? index : 0;
 
-        char explicitChar = text.charAt(index);
-        mention = createMentionWithExplicitChar(mention, explicitChar);
         insertMentionInternal(mention, text, index, index);
     }
 
     @SuppressLint("SetTextI18n")
     private void insertMentionInternal(@NonNull Mentionable mention, @NonNull Editable text, int start, int end) {
-        // Insert the span into the editor
-        MentionSpan mentionSpan = mentionSpanFactory.createMentionSpan(mention, mentionSpanConfig);
         String name = mention.getSuggestiblePrimaryText();
 
         mBlockCompletion = true;
         text.replace(start, end, name);
         int endOfMention = start + name.length();
+        MentionSpan mentionSpan = createMentionSpan(mention, mentionSpanConfig, start, endOfMention);
         text.setSpan(mentionSpan, start, endOfMention, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         Selection.setSelection(text, endOfMention);
         ensureMentionSpanIntegrity(text);
@@ -1096,6 +1045,19 @@ public class MentionsEditText extends EditText implements TokenSource {
 
         // Reset input method since text has been changed (updates mention draw states)
         restartInput();
+    }
+
+    private MentionSpan createMentionSpan(@NonNull Mentionable mention, @Nullable MentionSpanConfig config, int start, int end) {
+        return new MentionSpan(mention, config, start, end) {
+            @Override
+            public void onClick(@NonNull View widget) {
+                if (mMentionClickReceiver == null)
+                    super.onClick(widget);
+                else {
+                    mMentionClickReceiver.onMentionClick(mention);
+                }
+            }
+        };
     }
 
     /**
@@ -1306,21 +1268,6 @@ public class MentionsEditText extends EditText implements TokenSource {
         }
     }
 
-    // --------------------------------------------------
-    // MentionSpan Factory
-    // --------------------------------------------------
-
-    /**
-     * Custom factory used when creating a {@link MentionSpan}.
-     */
-    public static class MentionSpanFactory {
-
-        @NonNull
-        public MentionSpan createMentionSpan(@NonNull Mentionable mention,
-                                             @Nullable MentionSpanConfig config) {
-            return (config != null) ? new MentionSpan(mention, config) : new MentionSpan(mention);
-        }
-    }
 
     // --------------------------------------------------
     // MentionsMovementMethod Class
@@ -1393,8 +1340,23 @@ public class MentionsEditText extends EditText implements TokenSource {
         mQueryTokenReceiver = queryTokenReceiver;
     }
 
+    /**
+     * Sets the receiver of always insert query tokens used by this class. The query token receiver will use the
+     * tokens to insert mentions even if not found in the database.
+     *
+     * @param queryTokenReceiver the {@link QueryTokenReceiver} to use
+     */
     public void setAlwaysInsertQueryReceiver(@Nullable final AlwaysInsertQueryReceiver queryTokenReceiver) {
         mAlwaysInsertQueryReceiver = queryTokenReceiver;
+    }
+
+    /**
+     * Sets the receiver of mention clicks
+     *
+     * @param mentionClickReceiver the {@link MentionClickReceiver} to use
+     */
+    public void setMentionClickReceiver(@Nullable final MentionClickReceiver mentionClickReceiver) {
+        mMentionClickReceiver = mentionClickReceiver;
     }
 
     /**
@@ -1404,15 +1366,6 @@ public class MentionsEditText extends EditText implements TokenSource {
      */
     public void setSuggestionsVisibilityManager(@Nullable final SuggestionsVisibilityManager suggestionsVisibilityManager) {
         mSuggestionsVisibilityManager = suggestionsVisibilityManager;
-    }
-
-    /**
-     * Sets the factory used to create MentionSpans within this class.
-     *
-     * @param factory the {@link MentionSpanFactory} to use
-     */
-    public void setMentionSpanFactory(@NonNull final MentionSpanFactory factory) {
-        mentionSpanFactory = factory;
     }
 
     /**

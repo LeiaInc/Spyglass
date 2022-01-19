@@ -1,16 +1,16 @@
 /*
-* Copyright 2015 LinkedIn Corp. All rights reserved.
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-* http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-*/
+ * Copyright 2015 LinkedIn Corp. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ */
 
 package com.linkedin.android.spyglass.sample.data.models;
 
@@ -18,6 +18,7 @@ import android.content.res.Resources;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.util.Log;
+
 import androidx.annotation.NonNull;
 
 import com.linkedin.android.spyglass.mentions.Mentionable;
@@ -69,16 +70,20 @@ public class Person implements Mentionable {
     @NonNull
     @Override
     public String getTextForDisplayMode(MentionDisplayMode mode) {
+        String text = null;
         switch (mode) {
             case FULL:
-                return getFullName();
+                text = getFullName();
+                break;
             case PARTIAL:
                 String[] words = getFullName().split(" ");
-                return (words.length > 1) ? words[0] : "";
+                text = (words.length > 1) ? words[0] : "";
+                break;
             case NONE:
             default:
-                return "";
+                text = "";
         }
+        return "@" + text;
     }
 
     @NonNull
@@ -94,7 +99,7 @@ public class Person implements Mentionable {
 
     @Override
     public String getSuggestiblePrimaryText() {
-        return getFullName();
+        return "@" + getFullName();
     }
 
     @Override

@@ -5,7 +5,7 @@
     <attr name="selectedMentionTextColor" format="color"/>
     <attr name="selectedMentionTextBackgroundColor" format="color"/>
 
-    <declare-styleable name="MentionsEditText">
+    <declare-styleable name="MentionsView">
         <attr name="mentionTextColor"/>
         <attr name="mentionTextBackgroundColor"/>
         <attr name="selectedMentionTextColor"/>

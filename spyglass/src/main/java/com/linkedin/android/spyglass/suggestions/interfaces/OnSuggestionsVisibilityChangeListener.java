@@ -14,15 +14,17 @@
 
 package com.linkedin.android.spyglass.suggestions.interfaces;
 
+import com.linkedin.android.spyglass.ui.MentionsEditorView;
+
 public interface OnSuggestionsVisibilityChangeListener {
 
     /**
-     * Called when the suggestion list in the {@link com.linkedin.android.spyglass.ui.RichEditorView} is displayed.
+     * Called when the suggestion list in the {@link MentionsEditorView} is displayed.
      */
     void onSuggestionsDisplayed();
 
     /**
-     * Called when the suggestion list in the {@link com.linkedin.android.spyglass.ui.RichEditorView} is hidden.
+     * Called when the suggestion list in the {@link MentionsEditorView} is hidden.
      */
     void onSuggestionsHidden();
 }

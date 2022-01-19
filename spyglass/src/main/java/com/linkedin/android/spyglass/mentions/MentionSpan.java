@@ -1,16 +1,16 @@
 /*
-* Copyright 2015 LinkedIn Corp. All rights reserved.
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-* http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-*/
+ * Copyright 2015 LinkedIn Corp. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ */
 
 package com.linkedin.android.spyglass.mentions;
 
@@ -21,7 +21,9 @@ import android.text.TextPaint;
 import android.text.style.ClickableSpan;
 import android.view.View;
 import android.widget.EditText;
+
 import androidx.annotation.NonNull;
+
 import com.linkedin.android.spyglass.mentions.Mentionable.MentionDisplayMode;
 import com.linkedin.android.spyglass.ui.MentionsEditText;
 
@@ -33,20 +35,22 @@ public class MentionSpan extends ClickableSpan implements Parcelable {
 
     private final Mentionable mention;
     private MentionSpanConfig config;
+    private int start;
+    private int end;
 
     private boolean isSelected = false;
     private MentionDisplayMode mDisplayMode = MentionDisplayMode.FULL;
 
-    public MentionSpan(@NonNull Mentionable mention) {
-        super();
-        this.mention = mention;
-        this.config = new MentionSpanConfig.Builder().build();
-    }
 
-    public MentionSpan(@NonNull Mentionable mention, @NonNull MentionSpanConfig config) {
+    public MentionSpan(@NonNull Mentionable mention, MentionSpanConfig config, int start, int end) {
         super();
         this.mention = mention;
-        this.config = config;
+        if (config == null)
+            this.config = new MentionSpanConfig.Builder().build();
+        else
+            this.config = config;
+        this.start = start;
+        this.end = end;
     }
 
     @Override
@@ -54,7 +58,13 @@ public class MentionSpan extends ClickableSpan implements Parcelable {
         if (!(widget instanceof MentionsEditText)) {
             return;
         }
+        onDefaultClick(widget);
+    }
 
+    /**
+     * Default click listener if not overriden
+     */
+    private void onDefaultClick(@NonNull final View widget) {
         // Get reference to the MentionsEditText
         MentionsEditText editText = (MentionsEditText) widget;
         Editable text = editText.getText();
@@ -119,6 +129,14 @@ public class MentionSpan extends ClickableSpan implements Parcelable {
         return mention.getTextForDisplayMode(mDisplayMode);
     }
 
+    public int getStart() {
+        return start;
+    }
+
+    public int getEnd() {
+        return end;
+    }
+
     @Override
     public int describeContents() {
         return 0;
@@ -134,6 +152,8 @@ public class MentionSpan extends ClickableSpan implements Parcelable {
         dest.writeInt(getDisplayMode().ordinal());
         dest.writeInt(isSelected() ? 1 : 0);
         dest.writeParcelable(getMention(), flags);
+        dest.writeInt(getStart());
+        dest.writeInt(getEnd());
     }
 
     public MentionSpan(@NonNull Parcel in) {
@@ -142,11 +162,13 @@ public class MentionSpan extends ClickableSpan implements Parcelable {
         int selectedTextColor = in.readInt();
         int selectedTextBackgroundColor = in.readInt();
         config = new MentionSpanConfig(normalTextColor, normalTextBackgroundColor,
-                                       selectedTextColor, selectedTextBackgroundColor);
+                selectedTextColor, selectedTextBackgroundColor);
 
         mDisplayMode = MentionDisplayMode.values()[in.readInt()];
         setSelected((in.readInt() == 1));
         mention = in.readParcelable(Mentionable.class.getClassLoader());
+        start = in.readInt();
+        end = in.readInt();
     }
 
     public static final Parcelable.Creator<MentionSpan> CREATOR

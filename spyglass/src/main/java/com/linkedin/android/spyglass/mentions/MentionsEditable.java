@@ -146,9 +146,9 @@ public class MentionsEditable extends SpannableStringBuilder implements Parcelab
     }
 
     @NonNull
-    public List<MentionSpan> getMentionSpans() {
+    public ArrayList<MentionSpan> getMentionSpans() {
         MentionSpan[] mentionSpans = getSpans(0, length(), MentionSpan.class);
-        return (mentionSpans != null) ? Arrays.asList(mentionSpans) : new ArrayList<MentionSpan>();
+        return (mentionSpans != null) ? new ArrayList<MentionSpan>(Arrays.asList(mentionSpans)) : new ArrayList<MentionSpan>();
     }
 
     /**

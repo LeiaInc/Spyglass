@@ -30,7 +30,7 @@ import java.io.Serializable;
 public class QueryToken implements Serializable {
 
     // what the user typed, exactly, as detected by the tokenizer
-    private String mTokenString;
+    private final String mTokenString;
 
     // if the query was explicit, then this was the character the user typed (otherwise, null char)
     private char mExplicitChar = 0;

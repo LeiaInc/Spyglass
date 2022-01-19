@@ -16,18 +16,26 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="4dp"
             android:layout_marginTop="8dp"
-            android:layout_marginBottom="8dp"
             android:layout_marginEnd="4dp"
-            android:text="@string/mentions_and_hashtags_description" />
+            android:layout_marginBottom="8dp"
+            android:text="@string/mentions_and_hashtags_result_description" />
 
     </LinearLayout>
 
-    <com.linkedin.android.spyglass.ui.MentionsEditorView
-        android:id="@+id/editor"
+    <com.linkedin.android.spyglass.ui.MentionsTextView
+        android:id="@+id/viewer"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:minHeight="150dp"
+        android:layout_height="match_parent"
+        android:layout_marginStart="4dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="4dp"
+        android:clickable="true"
+        android:focusable="true"
+        android:scrollbars="vertical"
+        android:textColor="@android:color/black"
+        android:textSize="18sp"
         app:mentionTextBackgroundColor="@android:color/transparent"
         app:mentionTextColor="@color/app_color"
         app:selectedMentionTextBackgroundColor="@color/app_color" />
+
 </LinearLayout>
