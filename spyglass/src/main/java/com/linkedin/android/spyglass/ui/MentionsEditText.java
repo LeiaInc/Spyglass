@@ -15,20 +15,17 @@
 package com.linkedin.android.spyglass.ui;
 
 import android.annotation.SuppressLint;
-import android.content.ClipData;
-import android.content.ClipDescription;
 import android.content.ClipboardManager;
 import android.content.Context;
-import android.content.Intent;
 import android.content.res.TypedArray;
 import android.os.Build;
-import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.text.Editable;
 import android.text.Layout;
 import android.text.Selection;
 import android.text.Spannable;
+import android.text.SpannableString;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.TextUtils;
@@ -37,6 +34,7 @@ import android.text.method.ArrowKeyMovementMethod;
 import android.text.method.LinkMovementMethod;
 import android.text.method.MovementMethod;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
@@ -58,7 +56,6 @@ import com.linkedin.android.spyglass.mentions.Mentionable;
 import com.linkedin.android.spyglass.mentions.MentionsEditable;
 import com.linkedin.android.spyglass.suggestions.interfaces.SuggestionsVisibilityManager;
 import com.linkedin.android.spyglass.tokenization.QueryToken;
-import com.linkedin.android.spyglass.tokenization.interfaces.AlwaysInsertQueryReceiver;
 import com.linkedin.android.spyglass.tokenization.interfaces.MentionClickReceiver;
 import com.linkedin.android.spyglass.tokenization.interfaces.QueryTokenReceiver;
 import com.linkedin.android.spyglass.tokenization.interfaces.TokenSource;
@@ -82,19 +79,15 @@ import java.util.List;
  */
 public class MentionsEditText extends EditText implements TokenSource {
 
-    private static final String KEY_MENTION_SPANS = "mention_spans";
-    private static final String KEY_MENTION_SPAN_STARTS = "mention_span_starts";
-
     private Tokenizer mTokenizer;
     private QueryTokenReceiver mQueryTokenReceiver;
-    private AlwaysInsertQueryReceiver mAlwaysInsertQueryReceiver;
     private MentionClickReceiver mMentionClickReceiver;
     private QueryToken mLastQueryToken;
     private SuggestionsVisibilityManager mSuggestionsVisibilityManager;
 
-    private List<MentionWatcher> mMentionWatchers = new ArrayList<>();
-    private List<TextWatcher> mExternalTextWatchers = new ArrayList<>();
-    private final MyWatcher mInternalTextWatcher = new MyWatcher();
+    private final List<MentionWatcher> mMentionWatchers = new ArrayList<>();
+    private final List<TextWatcher> mExternalTextWatchers = new ArrayList<>();
+    private final MentionsTextWatcher mInternalTextWatcher = new MentionsTextWatcher();
     private boolean mBlockCompletion = false;
     private boolean mIsWatchingText = false;
     private boolean mAvoidPrefixOnTap = false;
@@ -289,129 +282,6 @@ public class MentionsEditText extends EditText implements TokenSource {
         return superResult;
     }
 
-    @Override
-    public boolean onTextContextMenuItem(@MenuRes int id) {
-        MentionsEditable text = getMentionsText();
-        int min = Math.max(0, getSelectionStart());
-        int selectionEnd = getSelectionEnd();
-        int max = selectionEnd >= 0 ? selectionEnd : text.length();
-        // Ensuring that min is always less than or equal to max.
-        min = Math.min(min, max);
-        switch (id) {
-            case android.R.id.cut:
-                // First copy the span and then remove it from the current EditText
-                copy(min, max);
-                MentionSpan[] span = text.getSpans(min, max, MentionSpan.class);
-                for (MentionSpan mentionSpan : span) {
-                    text.removeSpan(mentionSpan);
-                }
-                text.delete(min, max);
-                return true;
-            case android.R.id.copy:
-                copy(min, max);
-                return true;
-            case android.R.id.paste:
-                paste(min, max);
-                return true;
-            default:
-                return super.onTextContextMenuItem(id);
-        }
-    }
-
-    /**
-     * Copy the text between start and end in clipboard.
-     * If no span is present, text is saved as plain text but if span is present
-     * save it in Clipboard using intent.
-     */
-    private void copy(@IntRange(from = 0) int start, @IntRange(from = 0) int end) {
-        MentionsEditable text = getMentionsText();
-        SpannableStringBuilder copiedText = (SpannableStringBuilder) text.subSequence(start, end);
-        MentionSpan[] spans = text.getSpans(start, end, MentionSpan.class);
-        Intent intent = null;
-        if (spans.length > 0) {
-            // Save MentionSpan and it's start offset.
-            intent = new Intent();
-            intent.putExtra(KEY_MENTION_SPANS, spans);
-            int[] spanStart = new int[spans.length];
-            for (int i = 0; i < spans.length; i++) {
-                spanStart[i] = copiedText.getSpanStart(spans[i]);
-            }
-            intent.putExtra(KEY_MENTION_SPAN_STARTS, spanStart);
-        }
-        saveToClipboard(copiedText, intent);
-    }
-
-    /**
-     * Paste clipboard content between min and max positions.
-     * If clipboard content contain the MentionSpan, set the span in copied text.
-     */
-    private void paste(@IntRange(from = 0) int min, @IntRange(from = 0) int max) {
-        ClipboardManager clipboard = (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
-        ClipData clip = clipboard.getPrimaryClip();
-        if (clip != null) {
-            for (int i = 0; i < clip.getItemCount(); i++) {
-                ClipData.Item item = clip.getItemAt(i);
-                String selectedText = item.coerceToText(getContext()).toString();
-                MentionsEditable text = getMentionsText();
-                MentionSpan[] spans = text.getSpans(min, max, MentionSpan.class);
-                /*
-                 * We need to remove the span between min and max. This is required because in
-                 * {@link SpannableStringBuilder#replace(int, int, CharSequence)} existing spans within
-                 * the Editable that entirely cover the replaced range are retained, but any that
-                 * were strictly within the range that was replaced are removed. In our case the existing
-                 * spans are retained if the selection entirely covers the span. So, we just remove
-                 * the existing span and replace the new text with that span.
-                 */
-                for (MentionSpan span : spans) {
-                    if (text.getSpanEnd(span) == min) {
-                        // We do not want to remove the span, when we want to paste anything just next
-                        // to the existing span. In this case "text.getSpanEnd(span)" will be equal
-                        // to min.
-                        continue;
-                    }
-                    text.removeSpan(span);
-                }
-
-                Intent intent = item.getIntent();
-                // Just set the plain text if we do not have mentions data in the intent/bundle
-                if (intent == null) {
-                    text.replace(min, max, selectedText);
-                    continue;
-                }
-                Bundle bundle = intent.getExtras();
-                if (bundle == null) {
-                    text.replace(min, max, selectedText);
-                    continue;
-                }
-                bundle.setClassLoader(getContext().getClassLoader());
-                int[] spanStart = bundle.getIntArray(KEY_MENTION_SPAN_STARTS);
-                Parcelable[] parcelables = bundle.getParcelableArray(KEY_MENTION_SPANS);
-                if (parcelables == null || parcelables.length <= 0 || spanStart == null || spanStart.length <= 0) {
-                    text.replace(min, max, selectedText);
-                    continue;
-                }
-
-                // Set the MentionSpan in text.
-                SpannableStringBuilder s = new SpannableStringBuilder(selectedText);
-                for (int j = 0; j < parcelables.length; j++) {
-                    MentionSpan mentionSpan = (MentionSpan) parcelables[j];
-                    s.setSpan(mentionSpan, spanStart[j], spanStart[j] + mentionSpan.getDisplayString().length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                }
-                text.replace(min, max, s);
-            }
-        }
-    }
-
-    /**
-     * Save the selected text and intent in ClipboardManager
-     */
-    private void saveToClipboard(@NonNull CharSequence selectedText, @Nullable Intent intent) {
-        ClipboardManager clipboard = (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
-        ClipData.Item item = new ClipData.Item(selectedText, intent, null);
-        ClipData clip = new ClipData(null, new String[]{ClipDescription.MIMETYPE_TEXT_PLAIN}, item);
-        clipboard.setPrimaryClip(clip);
-    }
-
     /**
      * Gets the {@link MentionSpan} from the {@link MentionsEditText} that was tapped.
      * <p>
@@ -458,6 +328,8 @@ public class MentionsEditText extends EditText implements TokenSource {
     // Cursor & Selection Event Methods
     // --------------------------------------------------
 
+    private int prevSel = -1;
+
     /**
      * Called whenever the selection within the {@link EditText} has changed.
      *
@@ -466,15 +338,12 @@ public class MentionsEditText extends EditText implements TokenSource {
      */
     @Override
     protected void onSelectionChanged(final int selStart, final int selEnd) {
-        // Handle case where there is only one cursor (i.e. not selecting a range, just moving cursor)
-        if (selStart == selEnd) {
-            if (!onCursorChanged(selStart)) {
-                super.onSelectionChanged(selStart, selEnd);
-            }
-            return;
-        } else {
-            updateSelectionIfRequired(selStart, selEnd);
+        // if we changed selection
+        if (!mBlockCompletion && prevSel != -1 && (selEnd < prevSel || Math.abs(selEnd - prevSel) > 1)) {
+            checkCurrentQuery(true);
         }
+        prevSel = selEnd;
+        updateSelectionIfRequired(selStart, selEnd);
         super.onSelectionChanged(selStart, selEnd);
     }
 
@@ -501,49 +370,12 @@ public class MentionsEditText extends EditText implements TokenSource {
         }
     }
 
-    /**
-     * Method to handle the cursor changing positions. Returns true if handled, false if it should
-     * be passed to the super method.
-     *
-     * @param index int position of cursor within the text
-     * @return true if handled
-     */
-    private boolean onCursorChanged(final int index) {
-        Editable text = getText();
-        if (text == null) {
-            return false;
-        }
-
-        MentionSpan[] allSpans = text.getSpans(0, text.length(), MentionSpan.class);
-        for (MentionSpan span : allSpans) {
-            // Deselect span if the cursor is not on the span.
-            if (span.isSelected() && (index < text.getSpanStart(span) || index > text.getSpanEnd(span))) {
-                span.setSelected(false);
-                updateSpan(span);
-            }
-        }
-
-        // Do not allow the user to set the cursor within a span. If the user tries to do so, select
-        // move the cursor to the end of it.
-        MentionSpan[] currentSpans = text.getSpans(index, index, MentionSpan.class);
-        if (currentSpans.length != 0) {
-            MentionSpan span = currentSpans[0];
-            int start = text.getSpanStart(span);
-            int end = text.getSpanEnd(span);
-            if (index > start && index < end) {
-                super.setSelection(end);
-                return true;
-            }
-        }
-
-        return false;
-    }
 
     // --------------------------------------------------
     // TextWatcher Implementation
     // --------------------------------------------------
 
-    private class MyWatcher implements TextWatcher {
+    private class MentionsTextWatcher implements TextWatcher {
 
         /**
          * {@inheritDoc}
@@ -683,23 +515,15 @@ public class MentionsEditText extends EditText implements TokenSource {
         MentionSpan prevSpan = text.getMentionSpanEndingAt(cursor);
         boolean isNeedToMarkSpan = (count == (after + 1) || after == 0) && prevSpan != null;
         if (isNeedToMarkSpan) {
-
-            // Cursor was directly behind a span and was moved back one, so delete it if selected,
-            // or select it if not already selected
-            if (prevSpan.isSelected()) {
-                Mentionable mention = prevSpan.getMention();
-                Mentionable.MentionDeleteStyle deleteStyle = mention.getDeleteStyle();
-                Mentionable.MentionDisplayMode displayMode = prevSpan.getDisplayMode();
-                // Determine new DisplayMode given previous DisplayMode and MentionDeleteStyle
-                if (deleteStyle == Mentionable.MentionDeleteStyle.PARTIAL_NAME_DELETE
-                        && displayMode == Mentionable.MentionDisplayMode.FULL) {
-                    prevSpan.setDisplayMode(Mentionable.MentionDisplayMode.PARTIAL);
-                } else {
-                    prevSpan.setDisplayMode(Mentionable.MentionDisplayMode.NONE);
-                }
+            Mentionable mention = prevSpan.getMention();
+            Mentionable.MentionDeleteStyle deleteStyle = mention.getDeleteStyle();
+            Mentionable.MentionDisplayMode displayMode = prevSpan.getDisplayMode();
+            // Determine new DisplayMode given previous DisplayMode and MentionDeleteStyle
+            if (deleteStyle == Mentionable.MentionDeleteStyle.PARTIAL_NAME_DELETE
+                    && displayMode == Mentionable.MentionDisplayMode.FULL) {
+                prevSpan.setDisplayMode(Mentionable.MentionDisplayMode.PARTIAL);
             } else {
-                // Span was not selected, so select it
-                prevSpan.setSelected(true);
+                prevSpan.setDisplayMode(Mentionable.MentionDisplayMode.NONE);
             }
 
             return true;
@@ -850,6 +674,8 @@ public class MentionsEditText extends EditText implements TokenSource {
                             text.replace(start + end, start + end + diff, "");
                         }
                         if (name.length() > 0) {
+                            span.setStart(start);
+                            span.setEnd(start + name.length());
                             text.setSpan(span, start, start + name.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
                         }
                         // Notify for partially deleted mentions.
@@ -901,20 +727,8 @@ public class MentionsEditText extends EditText implements TokenSource {
             }
         }
 
-        // Handle always insert mention
-        String currentText = getText().toString();
-        if (!currentText.isEmpty() && mLastQueryToken != null) {
-            Tokenizer tokenizer = getTokenizer();
-            if (tokenizer == null) return;
-            if (tokenizer.isWordBreakingChar(currentText.charAt(currentText.length() - 1))) {
-                if (tokenizer.isAlwaysCreateMentionChar(mLastQueryToken.getExplicitChar())) {
-                    // Remove the inserted line breaker and handle the always insert
-                    int length = getEditableText().length();
-                    getEditableText().delete(length - 1, length);
-                    mAlwaysInsertQueryReceiver.onAlwaysInsertQueryReceived(mLastQueryToken);
-                }
-            }
-        }
+        // Handle custom insert mention
+        checkCurrentQuery(false);
 
         // Request suggestions from the QueryClient
         QueryToken queryToken = getQueryTokenIfValid();
@@ -982,6 +796,37 @@ public class MentionsEditText extends EditText implements TokenSource {
         mBlockCompletion = false;
     }
 
+
+    public void checkCurrentQuery(Boolean isManual) {
+        // Handle custom insert mention
+        String currentText = getText().toString();
+        if (!currentText.isEmpty() && mLastQueryToken != null) {
+            Tokenizer tokenizer = getTokenizer();
+            if (tokenizer == null) return;
+            int checkChar = Math.max(0, getSelectionEnd() - 1);
+            if (isManual || tokenizer.isWordBreakingChar(currentText.charAt(checkChar))) {
+                if (mLastQueryToken.isExplicit()) {
+                    Mentionable mentionable = mQueryTokenReceiver.getSuggestionFromQueryInstantly(mLastQueryToken);
+                    if (mentionable != null) {
+                        insertCustomMention(mentionable);
+                    }
+                }
+            }
+        }
+    }
+
+    public void insertCustomMention(@NonNull Mentionable mention) {
+        // Remove the inserted line breaker if present and handle the always insert
+        Tokenizer tokenizer = getTokenizer();
+        if (tokenizer == null) return;
+        String text = getText().toString();
+        int length = text.length();
+        if (tokenizer.isWordBreakingChar(text.charAt(text.length() - 1))) {
+            getEditableText().delete(length - 1, length);
+        }
+        insertMention(mention);
+    }
+
     /**
      * Inserts a mention into the token being considered currently.
      *
@@ -1004,21 +849,6 @@ public class MentionsEditText extends EditText implements TokenSource {
         insertMentionInternal(mention, text, start, end);
     }
 
-    /**
-     * Inserts a mention. This will not take any token into consideration. This method is useful
-     * when you want to insert a mention which doesn't have a token.
-     *
-     * @param mention {@link Mentionable} to insert a span for
-     */
-    public void insertMentionWithoutToken(@NonNull Mentionable mention) {
-        // Setup variables and ensure they are valid
-        Editable text = getEditableText();
-        int index = getSelectionStart();
-        index = index > 0 ? index : 0;
-
-        insertMentionInternal(mention, text, index, index);
-    }
-
     @SuppressLint("SetTextI18n")
     private void insertMentionInternal(@NonNull Mentionable mention, @NonNull Editable text, int start, int end) {
         String name = mention.getSuggestiblePrimaryText();
@@ -1028,9 +858,9 @@ public class MentionsEditText extends EditText implements TokenSource {
         int endOfMention = start + name.length();
         MentionSpan mentionSpan = createMentionSpan(mention, mentionSpanConfig, start, endOfMention);
         text.setSpan(mentionSpan, start, endOfMention, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        Selection.setSelection(text, endOfMention);
+        text.insert(endOfMention, " ");
         ensureMentionSpanIntegrity(text);
-        text.insert(text.length(), " ");
+        setSelection(endOfMention);
         mBlockCompletion = false;
 
         // Notify listeners of added mention
@@ -1195,9 +1025,68 @@ public class MentionsEditText extends EditText implements TokenSource {
         }
     }
 
-    // --------------------------------------------------
-    // Private Classes
-    // --------------------------------------------------
+    @Override
+    public boolean onTextContextMenuItem(@MenuRes int id) {
+        MentionsEditable text = getMentionsText();
+        int min = Math.max(0, getSelectionStart());
+        int selectionEnd = getSelectionEnd();
+        int max = selectionEnd >= 0 ? selectionEnd : text.length();
+        // Ensuring that min is always less than or equal to max.
+        min = Math.min(min, max);
+        if (id == android.R.id.cut) {
+            // First copy the span and then remove it from the current EditText
+            copy(min, max);
+            MentionSpan[] span = text.getSpans(min, max, MentionSpan.class);
+            for (MentionSpan mentionSpan : span) {
+                text.removeSpan(mentionSpan);
+            }
+            text.delete(min, max);
+            return true;
+        } else if (id == android.R.id.paste || id == android.R.id.pasteAsPlainText) {
+            paste(min, max);
+            return true;
+        } else
+            return super.onTextContextMenuItem(id);
+    }
+
+    @SuppressWarnings("Deprecation")
+    private void copy(@IntRange(from = 0) int start, @IntRange(from = 0) int end) {
+        String copiedText = getText().subSequence(start, end).toString();
+        ClipboardManager clipboard = (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
+        clipboard.setText(copiedText);
+    }
+
+
+    // Prepare mention spans
+    @SuppressWarnings("Deprecation")
+    private void paste(@IntRange(from = 0) int min, @IntRange(from = 0) int max) {
+        ClipboardManager clipboard = (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
+        SpannableString replaceText = new SpannableString(clipboard.getText());
+
+        int cursor = 0;
+        while (cursor <= replaceText.length()) {
+            int start = mTokenizer.findTokenStart(replaceText, cursor);
+            int end = mTokenizer.findTokenEnd(replaceText, cursor);
+            if (mTokenizer.isValidMention(replaceText, start, end)) {
+                String tokenString = replaceText.subSequence(start, end).toString();
+                char firstChar = tokenString.charAt(0);
+                boolean isExplicit = mTokenizer.isExplicitChar(tokenString.charAt(0));
+                QueryToken queryToken = (isExplicit ? new QueryToken(tokenString, firstChar) : new QueryToken(tokenString));
+                Mentionable mentionable = mQueryTokenReceiver.getSuggestionFromQueryInstantly(queryToken);
+                if (mentionable != null) {
+                    // Need to count start and end against the actual text
+                    MentionSpan mentionSpan = createMentionSpan(mentionable, mentionSpanConfig, start + min, end + min);
+                    replaceText.setSpan(mentionSpan, start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                }
+            }
+            cursor += end - start + 1;
+        }
+        mBlockCompletion = true;
+        getEditableText().replace(min, max, replaceText);
+        ensureMentionSpanIntegrity(getEditableText());
+        mBlockCompletion = false;
+        restartInput();
+    }
 
     /**
      * Simple class to hold onto a {@link MentionSpan} temporarily while the text is changing.
@@ -1242,9 +1131,6 @@ public class MentionsEditText extends EditText implements TokenSource {
         }
     }
 
-    // --------------------------------------------------
-    // MentionsEditable Factory
-    // --------------------------------------------------
 
     /**
      * Custom EditableFactory designed so that we can use the customized {@link MentionsEditable} in place of the
@@ -1269,9 +1155,9 @@ public class MentionsEditText extends EditText implements TokenSource {
     }
 
 
-    // --------------------------------------------------
-    // MentionsMovementMethod Class
-    // --------------------------------------------------
+// --------------------------------------------------
+// MentionsMovementMethod Class
+// --------------------------------------------------
 
     /**
      * Custom {@link MovementMethod} for this class used to override specific behavior in {@link ArrowKeyMovementMethod}.
@@ -1338,16 +1224,6 @@ public class MentionsEditText extends EditText implements TokenSource {
      */
     public void setQueryTokenReceiver(@Nullable final QueryTokenReceiver queryTokenReceiver) {
         mQueryTokenReceiver = queryTokenReceiver;
-    }
-
-    /**
-     * Sets the receiver of always insert query tokens used by this class. The query token receiver will use the
-     * tokens to insert mentions even if not found in the database.
-     *
-     * @param queryTokenReceiver the {@link QueryTokenReceiver} to use
-     */
-    public void setAlwaysInsertQueryReceiver(@Nullable final AlwaysInsertQueryReceiver queryTokenReceiver) {
-        mAlwaysInsertQueryReceiver = queryTokenReceiver;
     }
 
     /**
@@ -1453,9 +1329,9 @@ public class MentionsEditText extends EditText implements TokenSource {
         };
     }
 
-    // --------------------------------------------------
-    // MentionWatcher Interface & Simple Implementation
-    // --------------------------------------------------
+// --------------------------------------------------
+// MentionWatcher Interface & Simple Implementation
+// --------------------------------------------------
 
     /**
      * Interface to receive a callback for mention events.

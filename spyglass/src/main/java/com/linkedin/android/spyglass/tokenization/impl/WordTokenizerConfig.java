@@ -36,10 +36,6 @@ public class WordTokenizerConfig {
     @NonNull
     public final String EXPLICIT_CHARS;
 
-    // Characters to always create mentions even if suggestion is not found
-    @NonNull
-    public final String ALWAYS_CREATE_MENTIONS_CHARS;
-
     // Characters to use to separate words
     @NonNull
     public final String WORD_BREAK_CHARS;
@@ -48,13 +44,11 @@ public class WordTokenizerConfig {
                                 final int threshold,
                                 final int maxNumKeywords,
                                 final @NonNull String explicitChars,
-                                final @NonNull String alwaysCreateMentionsChars,
                                 final @NonNull String wordBreakChars) {
         LINE_SEPARATOR = lineSeparator;
         THRESHOLD = threshold;
         MAX_NUM_KEYWORDS = maxNumKeywords;
         EXPLICIT_CHARS = explicitChars;
-        ALWAYS_CREATE_MENTIONS_CHARS = alwaysCreateMentionsChars;
         WORD_BREAK_CHARS = wordBreakChars;
     }
 
@@ -65,7 +59,6 @@ public class WordTokenizerConfig {
         private int threshold = 4;
         private int maxNumKeywords = 1;
         private String explicitChars = "@";
-        private String alwaysCreateMentionsChars = "#";
         private String wordBreakChars = " ." + System.getProperty("line.separator");
 
         @NonNull
@@ -93,12 +86,6 @@ public class WordTokenizerConfig {
         }
 
         @NonNull
-        public Builder setAlwaysCreateMentionsChars(@NonNull String alwaysCreateMentionsChars) {
-            this.alwaysCreateMentionsChars = alwaysCreateMentionsChars;
-            return this;
-        }
-
-        @NonNull
         public Builder setWordBreakChars(@NonNull String wordBreakChars) {
             this.wordBreakChars = wordBreakChars;
             return this;
@@ -106,8 +93,8 @@ public class WordTokenizerConfig {
 
         @NonNull
         public WordTokenizerConfig build() {
-            return new WordTokenizerConfig(lineSeparator, threshold, maxNumKeywords, explicitChars,
-                    alwaysCreateMentionsChars, wordBreakChars);
+            return new WordTokenizerConfig(lineSeparator, threshold, maxNumKeywords,
+                    explicitChars, wordBreakChars);
         }
     }
 }

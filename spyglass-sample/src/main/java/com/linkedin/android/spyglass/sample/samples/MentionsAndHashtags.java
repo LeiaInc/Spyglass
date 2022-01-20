@@ -14,16 +14,24 @@
 
 package com.linkedin.android.spyglass.sample.samples;
 
+import android.content.Context;
 import android.content.Intent;
+import android.content.res.Resources;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.TypedValue;
+import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.linkedin.android.spyglass.mentions.Mentionable;
@@ -31,11 +39,12 @@ import com.linkedin.android.spyglass.sample.R;
 import com.linkedin.android.spyglass.sample.data.models.Hashtag;
 import com.linkedin.android.spyglass.sample.data.models.Person;
 import com.linkedin.android.spyglass.suggestions.SuggestionsResult;
+import com.linkedin.android.spyglass.suggestions.impl.BasicSuggestionsListBuilder;
+import com.linkedin.android.spyglass.suggestions.interfaces.Suggestible;
 import com.linkedin.android.spyglass.suggestions.interfaces.SuggestionsResultListener;
 import com.linkedin.android.spyglass.tokenization.QueryToken;
 import com.linkedin.android.spyglass.tokenization.impl.WordTokenizer;
 import com.linkedin.android.spyglass.tokenization.impl.WordTokenizerConfig;
-import com.linkedin.android.spyglass.tokenization.interfaces.AlwaysInsertQueryReceiver;
 import com.linkedin.android.spyglass.tokenization.interfaces.MentionClickReceiver;
 import com.linkedin.android.spyglass.tokenization.interfaces.QueryTokenReceiver;
 import com.linkedin.android.spyglass.ui.MentionsEditorView;
@@ -44,28 +53,18 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/**
- * TODO: Custom adapters!
- * TODO: Fix backspace handling? + probably
- * TODO: Span hashtag even if it was not found in database +
- * TODO: Static textview, passing data +
- * TODO: Handle comma? + probably
- * TODO: Handle insert ?
- * TODO: Span click handling +
- * TODO: Other UI customizations? Different autocompletion?
- * TODO: Getting rid of unused stuff and other code checks
- */
 public class MentionsAndHashtags extends AppCompatActivity
-        implements QueryTokenReceiver, AlwaysInsertQueryReceiver, MentionClickReceiver {
+        implements QueryTokenReceiver, MentionClickReceiver {
 
     private static final int PERSON_DELAY = 1000;
     private static final int HASHTAG_DELAY = 1000;
 
     private final WordTokenizerConfig tokenizerConfig = new WordTokenizerConfig
             .Builder()
-            .setWordBreakChars(", ")
+            .setThreshold(1)
+            .setMaxNumKeywords(2)
+            .setWordBreakChars(" ,.")
             .setExplicitChars("@#")
-            .setAlwaysCreateMentionsChars("#")
             .build();
 
     private static final String PERSON_BUCKET = "people";
@@ -86,11 +85,10 @@ public class MentionsAndHashtags extends AppCompatActivity
         editor = findViewById(R.id.editor);
 
         editor.setTokenizer(new WordTokenizer(tokenizerConfig));
-        editor.displayTextCounter(false);
         editor.setQueryTokenReceiver(this);
-        editor.setOnAlwaysInsertQueryTokenReceiver(this);
         editor.setMentionClickReceiver(this);
         editor.setHint(getResources().getString(R.string.type_person_or_hashtag));
+        editor.setSuggestionsListBuilder(new CustomSuggestionsListBuilder());
 
         people = new Person.PersonLoader(getResources());
         hashtags = new Hashtag.HashtagLoader(getResources());
@@ -104,8 +102,9 @@ public class MentionsAndHashtags extends AppCompatActivity
 
     public boolean onOptionsItemSelected(MenuItem item) {
         if (item.getItemId() == R.id.view) {
+            editor.checkCurrentQuery();
             Intent intent = new Intent(this, MentionsAndHashtagsResult.class);
-            intent.putExtra(MentionsAndHashtagsResult.EXTRA_MENTIONS_TEXT, editor.getPlainText());
+            intent.putExtra(MentionsAndHashtagsResult.EXTRA_MENTIONS_TEXT, editor.getPlainText().trim());
             intent.putParcelableArrayListExtra(MentionsAndHashtagsResult.EXTRA_MENTIONS_SPANS, editor.getMentionSpans());
             startActivity(intent);
             return true;
@@ -121,7 +120,7 @@ public class MentionsAndHashtags extends AppCompatActivity
         final SuggestionsResultListener listener = editor;
         final Handler handler = new Handler(Looper.getMainLooper());
 
-        if (queryToken.getExplicitChar() == PERSON_EXPLICIT_CHAR) {
+        if (queryToken.getExplicitChar() == PERSON_EXPLICIT_CHAR && queryToken.getKeywords().length() > 0) {
             buckets.add(PERSON_BUCKET);
             handler.postDelayed(() -> {
                 List<Person> suggestions = people.getSuggestions(queryToken);
@@ -131,7 +130,7 @@ public class MentionsAndHashtags extends AppCompatActivity
             }, PERSON_DELAY);
         }
 
-        if (queryToken.getExplicitChar() == HASHTAG_EXPLICIT_CHAR) {
+        if (queryToken.getExplicitChar() == HASHTAG_EXPLICIT_CHAR && queryToken.getKeywords().length() > 0) {
             buckets.add(HASHTAG_BUCKET);
             handler.postDelayed(() -> {
                 List<Hashtag> suggestions = hashtags.getSuggestions(queryToken);
@@ -145,9 +144,18 @@ public class MentionsAndHashtags extends AppCompatActivity
     }
 
     @Override
-    public void onAlwaysInsertQueryReceived(@NonNull QueryToken queryToken) {
-        Mentionable suggestion = new Hashtag(queryToken.getKeywords());
-        editor.insertMention(suggestion);
+    public Mentionable getSuggestionFromQueryInstantly(@NonNull QueryToken queryToken) {
+        String keywords = queryToken.getKeywords();
+        if (keywords.isEmpty()) return null;
+
+        if (queryToken.getExplicitChar() == PERSON_EXPLICIT_CHAR) {
+            // insert person only if there is a dead sure suggestion
+            return people.getExactSuggestion(queryToken);
+        } else if (queryToken.getExplicitChar() == HASHTAG_EXPLICIT_CHAR) {
+            return new Hashtag(keywords);
+        }
+
+        return null;
     }
 
     @Override
@@ -158,6 +166,36 @@ public class MentionsAndHashtags extends AppCompatActivity
         } else if (mention instanceof Hashtag) {
             String message = "Click on hashtag \"" + ((Hashtag) mention).getName() + "\"";
             Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private class CustomSuggestionsListBuilder extends BasicSuggestionsListBuilder {
+
+        @NonNull
+        @Override
+        public View getView(@NonNull Suggestible suggestion,
+                            @Nullable View convertView,
+                            ViewGroup parent,
+                            @NonNull Context context,
+                            @NonNull LayoutInflater inflater,
+                            @NonNull Resources resources) {
+
+            View v = super.getView(suggestion, convertView, parent, context, inflater, resources);
+            if (!(v instanceof TextView)) {
+                return v;
+            }
+
+            // Color text depending on the type of mention
+            TextView tv = (TextView) v;
+            if (suggestion instanceof Person) {
+                tv.setTextColor(getResources().getColor(R.color.person_color));
+                tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18);
+            } else if (suggestion instanceof Hashtag) {
+                tv.setTextColor(getResources().getColor(R.color.hashtag_color));
+                tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+            }
+
+            return tv;
         }
     }
 }

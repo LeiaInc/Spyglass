@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="app_color">#1285b2</color>
+    <color name="person_color">#4114ae</color>
+    <color name="hashtag_color">#d8006c</color>
 </resources>

@@ -16,7 +16,6 @@ package com.linkedin.android.spyglass.ui;
 
 import android.content.Context;
 import android.content.res.TypedArray;
-import android.graphics.Color;
 import android.text.Editable;
 import android.text.InputFilter;
 import android.text.InputType;
@@ -29,7 +28,6 @@ import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.RelativeLayout;
-import android.widget.TextView;
 
 import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
@@ -50,7 +48,6 @@ import com.linkedin.android.spyglass.suggestions.interfaces.SuggestionsVisibilit
 import com.linkedin.android.spyglass.tokenization.QueryToken;
 import com.linkedin.android.spyglass.tokenization.impl.WordTokenizer;
 import com.linkedin.android.spyglass.tokenization.impl.WordTokenizerConfig;
-import com.linkedin.android.spyglass.tokenization.interfaces.AlwaysInsertQueryReceiver;
 import com.linkedin.android.spyglass.tokenization.interfaces.MentionClickReceiver;
 import com.linkedin.android.spyglass.tokenization.interfaces.QueryTokenReceiver;
 import com.linkedin.android.spyglass.tokenization.interfaces.Tokenizer;
@@ -76,15 +73,13 @@ import java.util.List;
  * @attr ref R.styleable#RichEditorView_selectedMentionTextBackgroundColor
  */
 public class MentionsEditorView extends RelativeLayout implements TextWatcher, QueryTokenReceiver,
-        MentionClickReceiver, AlwaysInsertQueryReceiver, SuggestionsResultListener, SuggestionsVisibilityManager {
+        MentionClickReceiver, SuggestionsResultListener, SuggestionsVisibilityManager {
 
     private MentionsEditText mMentionsEditText;
     private int mOriginalInputType = InputType.TYPE_CLASS_TEXT; // Default to plain text
-    private TextView mTextCounterView;
     private ListView mSuggestionsList;
 
     private QueryTokenReceiver mHostQueryTokenReceiver;
-    private AlwaysInsertQueryReceiver mHostAlwaysInsertQueryTokenReceiver;
     private MentionClickReceiver mHostMentionClickReceiver;
     private SuggestionsAdapter mSuggestionsAdapter;
     private OnSuggestionsVisibilityChangeListener mActionListener;
@@ -93,12 +88,7 @@ public class MentionsEditorView extends RelativeLayout implements TextWatcher, Q
     private boolean mEditTextShouldWrapContent = false; // Default to match parent in height
     private int mPrevEditTextBottomPadding;
 
-    private int mTextCountLimit = -1;
-    private int mWithinCountLimitTextColor = Color.BLACK;
-    private int mBeyondCountLimitTextColor = Color.RED;
-
     private boolean mWaitingForFirstResult = false;
-    private boolean mDisplayTextCount = true;
 
     // --------------------------------------------------
     // Constructors & Initialization
@@ -126,7 +116,6 @@ public class MentionsEditorView extends RelativeLayout implements TextWatcher, Q
 
         // Get the inner views
         mMentionsEditText = findViewById(R.id.text_editor);
-        mTextCounterView = findViewById(R.id.text_counter);
         mSuggestionsList = findViewById(R.id.suggestions_list);
 
         // Get the MentionSpanConfig from custom XML attributes and set it
@@ -134,7 +123,6 @@ public class MentionsEditorView extends RelativeLayout implements TextWatcher, Q
         mMentionsEditText.setMentionSpanConfig(mentionSpanConfig);
 
         // Create the tokenizer to use for the editor
-        // TODO: Allow customization of configuration via XML attributes
         WordTokenizerConfig tokenizerConfig = new WordTokenizerConfig.Builder().build();
         WordTokenizer tokenizer = new WordTokenizer(tokenizerConfig);
         mMentionsEditText.setTokenizer(tokenizer);
@@ -143,7 +131,6 @@ public class MentionsEditorView extends RelativeLayout implements TextWatcher, Q
         mMentionsEditText.setSuggestionsVisibilityManager(this);
         mMentionsEditText.addTextChangedListener(this);
         mMentionsEditText.setQueryTokenReceiver(this);
-        mMentionsEditText.setAlwaysInsertQueryReceiver(this);
         mMentionsEditText.setMentionClickReceiver(this);
         mMentionsEditText.setAvoidPrefixOnTap(true);
 
@@ -155,12 +142,9 @@ public class MentionsEditorView extends RelativeLayout implements TextWatcher, Q
         // Set the item click listener
         mSuggestionsList.setOnItemClickListener((parent, view, position, id) -> {
             Mentionable mention = (Mentionable) mSuggestionsAdapter.getItem(position);
-            insertMention(mention);
+            if (mMentionsEditText != null) mMentionsEditText.insertMention(mention);
             mSuggestionsAdapter.clear();
         });
-
-        // Display and update the editor text counter (starts it at 0)
-        updateEditorTextCount();
 
         // Wrap the EditText content height if necessary (ideally, allow this to be controlled via custom XML attribute)
         setEditTextShouldWrapContent(mEditTextShouldWrapContent);
@@ -255,27 +239,6 @@ public class MentionsEditorView extends RelativeLayout implements TextWatcher, Q
         return -1;
     }
 
-    /**
-     * Show or hide the text counter view.
-     *
-     * @param display true to display the text counter view
-     */
-    public void displayTextCounter(boolean display) {
-        mDisplayTextCount = display;
-        if (display) {
-            mTextCounterView.setVisibility(TextView.VISIBLE);
-        } else {
-            mTextCounterView.setVisibility(TextView.GONE);
-        }
-    }
-
-    /**
-     * @return true if the text counter view is currently visible to the user
-     */
-    public boolean isDisplayingTextCounter() {
-        return mTextCounterView != null && mTextCounterView.getVisibility() == TextView.VISIBLE;
-    }
-
     // --------------------------------------------------
     // TextWatcher Implementation
     // --------------------------------------------------
@@ -301,7 +264,6 @@ public class MentionsEditorView extends RelativeLayout implements TextWatcher, Q
      */
     @Override
     public void afterTextChanged(Editable s) {
-        updateEditorTextCount();
     }
 
     // --------------------------------------------------
@@ -326,10 +288,11 @@ public class MentionsEditorView extends RelativeLayout implements TextWatcher, Q
      * {@inheritDoc}
      */
     @Override
-    public void onAlwaysInsertQueryReceived(@NonNull QueryToken queryToken) {
-        if (mHostAlwaysInsertQueryTokenReceiver != null) {
-            mHostAlwaysInsertQueryTokenReceiver.onAlwaysInsertQueryReceived(queryToken);
+    public Mentionable getSuggestionFromQueryInstantly(@NonNull QueryToken queryToken) {
+        if (mHostQueryTokenReceiver != null) {
+            return mHostQueryTokenReceiver.getSuggestionFromQueryInstantly(queryToken);
         }
+        return null;
     }
 
     /**
@@ -381,7 +344,6 @@ public class MentionsEditorView extends RelativeLayout implements TextWatcher, Q
         // Change view depending on whether suggestions are being shown or not
         if (display) {
             disableSpellingSuggestions(true);
-            mTextCounterView.setVisibility(View.GONE);
             mSuggestionsList.setVisibility(View.VISIBLE);
             mPrevEditTextParams = mMentionsEditText.getLayoutParams();
             mPrevEditTextBottomPadding = mMentionsEditText.getPaddingBottom();
@@ -401,7 +363,6 @@ public class MentionsEditorView extends RelativeLayout implements TextWatcher, Q
             }
         } else {
             disableSpellingSuggestions(false);
-            mTextCounterView.setVisibility(mDisplayTextCount ? View.VISIBLE : View.GONE);
             mSuggestionsList.setVisibility(View.GONE);
             mMentionsEditText.setPadding(mMentionsEditText.getPaddingLeft(), mMentionsEditText.getPaddingTop(), mMentionsEditText.getPaddingRight(), mPrevEditTextBottomPadding);
             if (mPrevEditTextParams == null) {
@@ -419,12 +380,13 @@ public class MentionsEditorView extends RelativeLayout implements TextWatcher, Q
         invalidate();
     }
 
+
     /**
-     * Manual mention insert
+     * Check current query manually
      */
-    public void insertMention(Mentionable mention) {
+    public void checkCurrentQuery() {
         if (mMentionsEditText != null) {
-            mMentionsEditText.insertMention(mention);
+            mMentionsEditText.checkCurrentQuery(true);
         }
     }
 
@@ -457,27 +419,6 @@ public class MentionsEditorView extends RelativeLayout implements TextWatcher, Q
         }
         mMentionsEditText.setRawInputType(disable ? InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS : mOriginalInputType);
         mMentionsEditText.setSelection(start, end);
-    }
-
-    // --------------------------------------------------
-    // Private Methods
-    // --------------------------------------------------
-
-    /**
-     * Updates the TextView counting the number of characters in the editor. Sets not only the content
-     * of the TextView, but also the color of the text depending if the limit has been reached.
-     */
-    private void updateEditorTextCount() {
-        if (mMentionsEditText != null && mTextCounterView != null) {
-            int textCount = mMentionsEditText.getMentionsText().length();
-            mTextCounterView.setText(String.valueOf(textCount));
-
-            if (mTextCountLimit > 0 && textCount > mTextCountLimit) {
-                mTextCounterView.setTextColor(mBeyondCountLimitTextColor);
-            } else {
-                mTextCounterView.setTextColor(mWithinCountLimitTextColor);
-            }
-        }
     }
 
     // --------------------------------------------------
@@ -648,36 +589,6 @@ public class MentionsEditorView extends RelativeLayout implements TextWatcher, Q
     // --------------------------------------------------
 
     /**
-     * Sets the limit on the maximum number of characters allowed to be entered into the
-     * {@link MentionsEditText} before the text counter changes color.
-     *
-     * @param limit the maximum number of characters allowed before the text counter changes color
-     */
-    public void setTextCountLimit(final int limit) {
-        mTextCountLimit = limit;
-    }
-
-    /**
-     * Sets the color of the text within the text counter while the user has entered fewer than the
-     * limit of characters.
-     *
-     * @param color the color of the text within the text counter below the limit
-     */
-    public void setWithinCountLimitTextColor(final int color) {
-        mWithinCountLimitTextColor = color;
-    }
-
-    /**
-     * Sets the color of the text within the text counter while the user has entered more text than
-     * the current limit.
-     *
-     * @param color the color of the text within the text counter beyond the limit
-     */
-    public void setBeyondCountLimitTextColor(final int color) {
-        mBeyondCountLimitTextColor = color;
-    }
-
-    /**
      * Sets the receiver of any tokens generated by the embedded {@link MentionsEditText}. The
      * receive should act on the queries as they are received and call
      * {@link #onReceiveSuggestionsResult(SuggestionsResult, String)} once the suggestions are ready.
@@ -686,16 +597,6 @@ public class MentionsEditorView extends RelativeLayout implements TextWatcher, Q
      */
     public void setQueryTokenReceiver(final @Nullable QueryTokenReceiver client) {
         mHostQueryTokenReceiver = client;
-    }
-
-    /**
-     * Sets the receiver of any tokens generated from always insert characters, to insert a mention
-     * even if it is not found in suggestions
-     *
-     * @param client the object that can receive {@link QueryToken} objects and insert mention from it
-     */
-    public void setOnAlwaysInsertQueryTokenReceiver(final @Nullable AlwaysInsertQueryReceiver client) {
-        mHostAlwaysInsertQueryTokenReceiver = client;
     }
 
     /**

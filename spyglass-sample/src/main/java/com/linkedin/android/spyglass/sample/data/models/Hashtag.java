@@ -23,8 +23,12 @@ import androidx.annotation.NonNull;
 import com.linkedin.android.spyglass.mentions.Mentionable;
 import com.linkedin.android.spyglass.sample.R;
 import com.linkedin.android.spyglass.sample.data.MentionsLoader;
+import com.linkedin.android.spyglass.tokenization.QueryToken;
 
 import org.json.JSONArray;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Model representing a basic, mentionable city.
@@ -125,6 +129,21 @@ public class Hashtag implements Mentionable {
                 Log.e(TAG, "Unhandled exception while parsing city JSONArray", e);
             }
             return data;
+        }
+
+        @Override
+        public List<Hashtag> getSuggestions(QueryToken queryToken) {
+            String prefix = queryToken.getTokenString().toLowerCase();
+            List<Hashtag> suggestions = new ArrayList<>();
+            if (mData != null) {
+                for (Hashtag suggestion : mData) {
+                    String name = suggestion.getSuggestiblePrimaryText().toLowerCase();
+                    if (name.startsWith(prefix)) {
+                        suggestions.add(suggestion);
+                    }
+                }
+            }
+            return suggestions;
         }
     }
 

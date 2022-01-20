@@ -17,6 +17,7 @@ package com.linkedin.android.spyglass.tokenization.interfaces;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.linkedin.android.spyglass.mentions.Mentionable;
 import com.linkedin.android.spyglass.suggestions.interfaces.SuggestionsResultListener;
 import com.linkedin.android.spyglass.suggestions.SuggestionsResult;
 import com.linkedin.android.spyglass.tokenization.QueryToken;
@@ -39,4 +40,11 @@ public interface QueryTokenReceiver {
      */
     @NonNull
     List<String> onQueryReceived(final @NonNull QueryToken queryToken);
+
+    /**
+     * Called to the client, expecting to return the Suggestion instantly
+     *
+     * @param queryToken the {@link QueryToken} to process
+     */
+    Mentionable getSuggestionFromQueryInstantly(final @NonNull QueryToken queryToken);
 }

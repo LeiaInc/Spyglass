@@ -6,6 +6,7 @@ import android.os.Build;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.text.Layout;
+import android.text.SpannableString;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.SpannedString;
@@ -81,7 +82,7 @@ public class MentionsTextView extends TextView {
     }
 
     public void setTextWithMentions(String text, List<MentionSpan> mentionSpans) {
-        SpannableStringBuilder spannable = new SpannableStringBuilder(text);
+        SpannableString spannable = new SpannableString(text);
         // Create the same spans but with current span style and click listener
         for (MentionSpan span : mentionSpans) {
             MentionSpan customSpan = createMentionSpan(span.getMention(), mentionSpanConfig, span.getStart(), span.getEnd());

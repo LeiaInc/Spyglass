@@ -80,5 +80,4 @@ public class BasicSuggestionsListBuilder implements SuggestionsListBuilder {
 
         return view;
     }
-
 }

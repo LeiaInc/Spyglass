@@ -160,6 +160,15 @@ public class Person implements Mentionable {
             return data;
         }
 
+        public Person getExactSuggestion(QueryToken queryToken) {
+            for (Person suggestion : mData) {
+                if (suggestion.getFullName().equals(queryToken.getKeywords().trim())) {
+                    return suggestion;
+                }
+            }
+            return null;
+        }
+
         // Modified to return suggestions based on both first and last name
         @Override
         public List<Person> getSuggestions(QueryToken queryToken) {

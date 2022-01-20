@@ -218,21 +218,6 @@ public class WordTokenizer implements Tokenizer {
     /**
      * {@inheritDoc}
      */
-    @Override
-    public boolean isAlwaysCreateMentionChar(final char c) {
-        final String alwaysCreateMentionsChars = mConfig.ALWAYS_CREATE_MENTIONS_CHARS;
-        for (int i = 0; i < alwaysCreateMentionsChars.length(); i++) {
-            char alwaysCreateMentionsChar = alwaysCreateMentionsChars.charAt(i);
-            if (c == alwaysCreateMentionsChar) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
     public boolean isWordBreakingChar(final char c) {
         final String wordBreakChars = mConfig.WORD_BREAK_CHARS;
         for (int i = 0; i < wordBreakChars.length(); i++) {
@@ -311,24 +296,6 @@ public class WordTokenizer implements Tokenizer {
             for (int i = 0; i < input.length(); i++) {
                 char c = input.charAt(i);
                 if (isExplicitChar(c)) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Returns true if the input string contains an always create mention character.
-     *
-     * @param input a {@link CharSequence} to test
-     * @return true if input contains an always create mention character
-     */
-    public boolean containsAlwaysCreateMentionChar(final @NonNull CharSequence input) {
-        if (!TextUtils.isEmpty(input)) {
-            for (int i = 0; i < input.length(); i++) {
-                char c = input.charAt(i);
-                if (isAlwaysCreateMentionChar(c)) {
                     return true;
                 }
             }

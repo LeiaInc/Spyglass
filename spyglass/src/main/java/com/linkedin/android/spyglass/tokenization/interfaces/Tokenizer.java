@@ -76,12 +76,4 @@ public interface Tokenizer {
      * @return true if c is an word-breaking character
      */
     boolean isWordBreakingChar(final char c);
-
-    /**
-     * Determines if given character is an always create mention character according to the current settings of the tokenizer.
-     *
-     * @param c character to test
-     * @return true if c is an always create mention character
-     */
-    boolean isAlwaysCreateMentionChar(final char c);
 }
