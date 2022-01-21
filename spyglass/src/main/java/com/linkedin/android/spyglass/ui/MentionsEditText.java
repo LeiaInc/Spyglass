@@ -48,6 +48,7 @@ import androidx.annotation.IntRange;
 import androidx.annotation.MenuRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.widget.AppCompatEditText;
 
 import com.linkedin.android.spyglass.R;
 import com.linkedin.android.spyglass.mentions.MentionSpan;
@@ -77,7 +78,7 @@ import java.util.List;
  * @attr ref R.styleable#MentionsEditText_selectedMentionTextColor
  * @attr ref R.styleable#MentionsEditText_selectedMentionTextBackgroundColor
  */
-public class MentionsEditText extends EditText implements TokenSource {
+public class MentionsEditText extends AppCompatEditText implements TokenSource {
 
     private Tokenizer mTokenizer;
     private QueryTokenReceiver mQueryTokenReceiver;
@@ -859,8 +860,9 @@ public class MentionsEditText extends EditText implements TokenSource {
         MentionSpan mentionSpan = createMentionSpan(mention, mentionSpanConfig, start, endOfMention);
         text.setSpan(mentionSpan, start, endOfMention, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         text.insert(endOfMention, " ");
+        setSelection(endOfMention + 1);
         ensureMentionSpanIntegrity(text);
-        setSelection(endOfMention);
+        mLastQueryToken = null;
         mBlockCompletion = false;
 
         // Notify listeners of added mention

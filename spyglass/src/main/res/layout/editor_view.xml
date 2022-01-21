@@ -1,22 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
-<merge
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="#0c0119"
     android:padding="0dp">
 
     <com.linkedin.android.spyglass.ui.MentionsEditText
         android:id="@+id/text_editor"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#3D245B"
         android:focusable="true"
         android:focusableInTouchMode="true"
         android:gravity="top|start"
         android:inputType="textNoSuggestions"
-        android:scrollbars="vertical"/>
+        android:padding="16dp"
+        android:scrollbars="vertical"
+        android:textColor="#ffffff"
+        android:textColorHint="@android:color/white" />
 
     <ListView
         android:id="@+id/suggestions_list"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_below="@+id/text_editor"
-        android:visibility="gone"/>
-</merge>
+        android:visibility="gone" />
+</RelativeLayout>

@@ -3,36 +3,19 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="#0c0119"
     android:orientation="vertical">
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="#BDBDBD"
-        android:orientation="vertical">
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="4dp"
-            android:layout_marginTop="8dp"
-            android:layout_marginEnd="4dp"
-            android:layout_marginBottom="8dp"
-            android:text="@string/mentions_and_hashtags_result_description" />
-
-    </LinearLayout>
 
     <com.linkedin.android.spyglass.ui.MentionsTextView
         android:id="@+id/viewer"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_marginStart="4dp"
-        android:layout_marginTop="8dp"
-        android:layout_marginEnd="4dp"
+        android:layout_height="wrap_content"
+        android:background="#3D245B"
         android:clickable="true"
         android:focusable="true"
+        android:padding="16dp"
         android:scrollbars="vertical"
-        android:textColor="@android:color/black"
+        android:textColor="#ffffff"
         android:textSize="18sp"
         app:mentionTextBackgroundColor="@android:color/transparent"
         app:mentionTextColor="@color/app_color"

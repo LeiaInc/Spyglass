@@ -84,10 +84,6 @@ public class MentionsEditorView extends RelativeLayout implements TextWatcher, Q
     private SuggestionsAdapter mSuggestionsAdapter;
     private OnSuggestionsVisibilityChangeListener mActionListener;
 
-    private ViewGroup.LayoutParams mPrevEditTextParams;
-    private boolean mEditTextShouldWrapContent = false; // Default to match parent in height
-    private int mPrevEditTextBottomPadding;
-
     private boolean mWaitingForFirstResult = false;
 
     // --------------------------------------------------
@@ -145,10 +141,6 @@ public class MentionsEditorView extends RelativeLayout implements TextWatcher, Q
             if (mMentionsEditText != null) mMentionsEditText.insertMention(mention);
             mSuggestionsAdapter.clear();
         });
-
-        // Wrap the EditText content height if necessary (ideally, allow this to be controlled via custom XML attribute)
-        setEditTextShouldWrapContent(mEditTextShouldWrapContent);
-        mPrevEditTextBottomPadding = mMentionsEditText.getPaddingBottom();
     }
 
     private MentionSpanConfig parseMentionSpanConfigFromAttributes(@Nullable AttributeSet attrs, int defStyleAttr) {
@@ -201,31 +193,7 @@ public class MentionsEditorView extends RelativeLayout implements TextWatcher, Q
         return (mMentionsEditText != null) ? mMentionsEditText.getMentionsText().getMentionSpans() : new ArrayList<>();
     }
 
-    /**
-     * Determine whether the internal {@link EditText} should match the full height of the {@link MentionsEditorView}
-     * initially or if it should wrap its content in height and expand to fill it as the user types.
-     * <p>
-     * Note: The {@link EditText} will always match the parent (i.e. the {@link MentionsEditorView} in width.
-     * Additionally, the {@link ListView} containing mention suggestions will always fill the rest
-     * of the height in the {@link MentionsEditorView}.
-     *
-     * @param enabled true if the {@link EditText} should wrap its content in height
-     */
-    public void setEditTextShouldWrapContent(boolean enabled) {
-        mEditTextShouldWrapContent = enabled;
-        if (mMentionsEditText == null) {
-            return;
-        }
-        mPrevEditTextParams = mMentionsEditText.getLayoutParams();
-        int wrap = (enabled) ? LayoutParams.WRAP_CONTENT : LayoutParams.MATCH_PARENT;
-        if (mPrevEditTextParams != null && mPrevEditTextParams.height == wrap) {
-            return;
-        }
-        ViewGroup.LayoutParams newParams = new LayoutParams(LayoutParams.MATCH_PARENT, wrap);
-        mMentionsEditText.setLayoutParams(newParams);
-        requestLayout();
-        invalidate();
-    }
+
 
     /**
      * @return current line number of the cursor, or -1 if no cursor
@@ -345,14 +313,9 @@ public class MentionsEditorView extends RelativeLayout implements TextWatcher, Q
         if (display) {
             disableSpellingSuggestions(true);
             mSuggestionsList.setVisibility(View.VISIBLE);
-            mPrevEditTextParams = mMentionsEditText.getLayoutParams();
-            mPrevEditTextBottomPadding = mMentionsEditText.getPaddingBottom();
-            mMentionsEditText.setPadding(mMentionsEditText.getPaddingLeft(), mMentionsEditText.getPaddingTop(), mMentionsEditText.getPaddingRight(), mMentionsEditText.getPaddingTop());
-            int height = mMentionsEditText.getPaddingTop() + mMentionsEditText.getLineHeight() + mMentionsEditText.getPaddingBottom();
-            mMentionsEditText.setLayoutParams(new LayoutParams(LayoutParams.MATCH_PARENT, height));
-            mMentionsEditText.setVerticalScrollBarEnabled(false);
             int cursorLine = getCurrentCursorLine();
             Layout layout = mMentionsEditText.getLayout();
+            mMentionsEditText.setVerticalScrollBarEnabled(false);
             if (layout != null) {
                 int lineTop = layout.getLineTop(cursorLine);
                 mMentionsEditText.scrollTo(0, lineTop);
@@ -364,11 +327,6 @@ public class MentionsEditorView extends RelativeLayout implements TextWatcher, Q
         } else {
             disableSpellingSuggestions(false);
             mSuggestionsList.setVisibility(View.GONE);
-            mMentionsEditText.setPadding(mMentionsEditText.getPaddingLeft(), mMentionsEditText.getPaddingTop(), mMentionsEditText.getPaddingRight(), mPrevEditTextBottomPadding);
-            if (mPrevEditTextParams == null) {
-                mPrevEditTextParams = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT);
-            }
-            mMentionsEditText.setLayoutParams(mPrevEditTextParams);
             mMentionsEditText.setVerticalScrollBarEnabled(true);
             // Notify action listener that list was hidden
             if (mActionListener != null) {

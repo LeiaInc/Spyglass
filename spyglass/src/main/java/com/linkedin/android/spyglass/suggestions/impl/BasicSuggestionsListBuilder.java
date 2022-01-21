@@ -74,8 +74,8 @@ public class BasicSuggestionsListBuilder implements SuggestionsListBuilder {
         if (view instanceof TextView) {
             TextView text = (TextView) view;
             text.setText(suggestion.getSuggestiblePrimaryText());
-            text.setTextColor(Color.BLACK);
-            text.setBackgroundColor(Color.WHITE);
+            text.setTextColor(Color.WHITE);
+            text.setBackgroundColor(Color.parseColor("#0C021A"));
         }
 
         return view;

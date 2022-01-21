@@ -40,13 +40,11 @@ public class MentionsAndHashtagsResult extends AppCompatActivity
     public static final String EXTRA_MENTIONS_TEXT = "extra_mentions_text";
     public static final String EXTRA_MENTIONS_SPANS = "extra_mentions_spans";
 
-    private MentionsTextView viewer;
-
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.mentions_and_hashtags_result);
 
-        viewer = findViewById(R.id.viewer);
+        MentionsTextView viewer = findViewById(R.id.viewer);
         viewer.setMentionClickReceiver(this);
 
         String text = getIntent().getStringExtra(EXTRA_MENTIONS_TEXT);

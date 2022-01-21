@@ -65,9 +65,5 @@ android {
 
 dependencies {
     implementation "androidx.fragment:fragment:${rootProject.ext.supportLibrariesVersion}"
-
-    testImplementation 'androidx.test:core:1.2.0'
-    testImplementation 'junit:junit:4.13'
-    testImplementation 'org.mockito:mockito-core:2.27.0'
-    testImplementation 'org.robolectric:robolectric:4.3.1'
+    api 'com.leiainc:androidsdk-core:1.8.1'
 }

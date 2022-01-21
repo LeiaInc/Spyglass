@@ -21,6 +21,7 @@ import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.leiainc.androidsdk.core.AntialiasingTextView;
 import com.linkedin.android.spyglass.R;
 import com.linkedin.android.spyglass.mentions.MentionSpan;
 import com.linkedin.android.spyglass.mentions.MentionSpanConfig;
@@ -30,7 +31,7 @@ import com.linkedin.android.spyglass.tokenization.interfaces.MentionClickReceive
 
 import java.util.List;
 
-public class MentionsTextView extends TextView {
+public class MentionsTextView extends AntialiasingTextView {
 
     private MentionSpanConfig mentionSpanConfig;
     private boolean isLongPressed;
